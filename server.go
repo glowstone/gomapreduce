@@ -1,4 +1,4 @@
-package mapreduce
+package gomapreduce
 
 import (
 	"fmt"

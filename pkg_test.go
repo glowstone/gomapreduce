@@ -1,4 +1,4 @@
-package mapreduce
+package gomapreduce
 
 import (
 	"testing"
@@ -6,7 +6,7 @@ import (
 	// "math/rand"
 	"os"
 	"strconv"
-	// "time"
+	"time"
 	"fmt"
 )
 
@@ -43,9 +43,13 @@ func TestBasic(t *testing.T) {
     	pxh[i] = port("basic", i)
   	}
   	for i := 0; i < nnodes; i++ {
-    	pxa[i] = Make(pxh, i, nil)
+    	pxa[i] = Make(pxh, i, nil, "unix")
   	}
   	fmt.Println(pxa)
   	fmt.Println(pxh)
+    time.Sleep(5000 * time.Millisecond)
+
+    pxa[0].Start()
+
 	fmt.Printf("Passed...\n")
 }

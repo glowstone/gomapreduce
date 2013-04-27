@@ -1,4 +1,4 @@
-package mapreduce
+package gomapreduce
 
 /* 
  * Provides applications with MapReduce library stubs which wrap the MapReduce 
@@ -11,6 +11,7 @@ import (
 	//"time"
   "math"
 	"math/rand"
+  "fmt"
 )
 
 
@@ -73,7 +74,8 @@ func make_id_generator() (func() int) {
 //
 func call(srv string, rpcname string, args interface{}, 
 	reply interface{}) bool {
-  c, errx := rpc.Dial("unix", srv)
+  fmt.Println("Sending to", srv)
+  c, errx := rpc.Dial("tcp", srv)
   if errx != nil {
     return false
   }
