@@ -26,6 +26,7 @@ type MapReduce struct {
 	me int                // index into nodes
 	nodes []string        // MapReduceNode port names
 	node_count int
+  net_mode string       // "unix" or "tcp"
 
 }
 
@@ -51,7 +52,7 @@ func (self *MapReduce) broadcast_testrpc() {
     args := &TestRPCArgs{}         // declare and init zero valued struct
     args.Number = 5
     var reply TestRPCReply
-    ok := call(node, "MapReduce.TestRPC", args, &reply)
+    ok := self.call(node, "MapReduce.TestRPC", args, &reply)
     if ok {
       fmt.Println("Successfully sent")
       fmt.Println(reply)
@@ -70,6 +71,38 @@ func (self *MapReduce) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
   reply.Err = OK
   return nil
 }
+
+
+//
+// call() sends an RPC to the rpcname handler on server srv
+// with arguments args, waits for the reply, and leaves the
+// reply in reply. the reply argument should be a pointer
+// to a reply structure.
+//
+// the return value is true if the server responded, and false
+// if call() was not able to contact the server. in particular,
+// the reply's contents are only valid if call() returned true.
+//
+// you should assume that call() will time out and return an
+// error after a while if it doesn't get a reply from the server.
+//
+// please use call() to send all RPCs, in client.go and server.go.
+// please don't change this function.
+//
+func (self *MapReduce) call(srv string, rpcname string, args interface{}, reply interface{}) bool {
+  fmt.Println("Sending to", srv)
+  c, errx := rpc.Dial("unix", srv)
+  if errx != nil {
+    return false
+  }
+  defer c.Close()
+    
+  err := c.Call(rpcname, args, reply)
+  if err == nil {
+    return true
+  }
+  return false
+}  
 
 
 //
@@ -94,6 +127,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduce {
   mr := &MapReduce{}
   mr.nodes = nodes    
   mr.me = me
+  mr.net_mode = mode
   // Initialization code
   mr.node_count = len(nodes)
 
@@ -146,6 +180,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduce {
       }()
 
     } else {
+      fmt.Println("Making in Unix mode")
       // mode assumed to be "unix"
 
       os.Remove(nodes[me]) // only needed for "unix"

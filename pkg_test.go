@@ -47,9 +47,11 @@ func TestBasic(t *testing.T) {
   	}
   	fmt.Println(pxa)
   	fmt.Println(pxh)
+    pxa[0].Start()
+
     time.Sleep(5000 * time.Millisecond)
 
-    pxa[0].Start()
+    
 
 	fmt.Printf("Passed...\n")
 }
