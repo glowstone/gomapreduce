@@ -13,8 +13,10 @@ import (
 	"sync"
 	"fmt"
 	"math/rand"
+  "math"
   "time"
   "encoding/gob"
+  "github.com/jacobsa/aws/s3"
 )
 
 type MapReduce struct {
@@ -28,19 +30,116 @@ type MapReduce struct {
 	node_count int
   net_mode string       // "unix" or "tcp"
 
+  instances map[int] MapReduceInstance  // Maps instanceNumber -> Instance
+  bucket s3.Bucket
+
+}
+
+type ConfigurationParams struct {
+  InputFolder string    // The folder within the "mapreduce_testing1" s3 bucket
+  OutputFolder string   // The folder to write output to (within "mapreduce_testing1")
+  // TODO Should contain map and reduce functions, chunk sizes etc.
+}
+
+type MapReduceInstance struct {
+  instanceNumber int
+  finished bool
+  master string
+}
+
+type MapWorkerJob struct {
+  Key string    // The key where the data for the job can be found
+  Worker string   // empty string if no assigned worker
+  Completed bool
+  // Map of intermediate keys to the location of the values for those keys (or some way for reducers to locate that data)
+  IntermediateKeyLocation map[string]string
 }
 
 
 func (self *MapReduce) Start() {
 	fmt.Println("Start MapReduce")
   self.broadcast_testrpc()
+  master := self.nodes[rand.Intn(len(self.nodes))]  // Or do we want to always choose master to be the called node? Then the client can choose who they want to be the master
+  fmt.Printf("Master: %s\n", master)
+  self.StartMapReduce(0, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead
+}
+
+// The method used by the master node to assign jobs to all workers
+func (self *MapReduce) StartMapReduce(sequenceNumber int, params ConfigurationParams) {
+  instance := MapReduceInstance{sequenceNumber, false, self.nodes[self.me]}
+  fmt.Printf("New instance: %s\n", instance)
+  workers := append(self.nodes[:self.me], self.nodes[self.me:]...)
+  fmt.Printf("Workers: %s\n", workers)
+
+  // Get the list of jobs that will need to be performed by workers
+  jobs := []MapWorkerJob{}
+
+  keys := FilterKeysByPrefix(self.bucket, params.InputFolder + "/")   // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
+  for _, key := range keys {
+    jobs = append(jobs, MapWorkerJob{key, "", false, map[string]string{}})
+  }
+
+  fmt.Println(jobs)
+
+  // While there are still unfinished worker jobs, assign new ones and wait for them to finish
+  numUnfinished := len(jobs)
+  var job MapWorkerJob
+  for numUnfinished > 0 {
+    fmt.Printf("Number unfinished: %d\n", numUnfinished)
+    jobIndex := getUnassignedJob(jobs)
+    job = jobs[jobIndex]
+    worker := workers[rand.Intn(len(workers))]    // TODO should only use an idle worker
+    jobs[jobIndex].Worker = worker
+    args := AssignMapTaskArgs{job}
+    reply := &AssignMapTaskReply{}
+    self.call(worker, "MapReduce.StartMapJob", args, reply)   // TODO this should be asynchronous RPC, check for err etc.
+    jobs[jobIndex].Completed = true
+
+    numUnfinished = getNumberUnfinished(jobs)
+    // TODO should sleep for some amount of time before looping again?
+  }
+}
+
+func (self *MapReduce) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTaskReply) error{
+  fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
+  mapData, _ := self.bucket.GetObject(args.Job.Key)
+  fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
+  // Run the map function on the data (asynchronously)
+  // Write the intermediate keys/values to somewhere (in memory for now)
+  // Set job.intermediateKeyLocation to the place that the value was written so reducers can find it
+  args.Job.Completed = true
+  reply.OK = true
+
+  return nil
+}
+
+func getNumberUnfinished(jobs []MapWorkerJob) int{
+  unfinished := 0
+  for _, job := range jobs {
+    if !job.Completed {
+      unfinished++
+    }
+  }
+
+  return unfinished
+}
+
+// Gets a random unassigned job from the list of jobs and returns it
+func getUnassignedJob(jobs []MapWorkerJob) int {
+  for i, job := range jobs {
+    if job.Worker == "" {
+      return i
+    }
+  }
+
+  return -1  // TODO check this
 }
 
 /*
  *
  */
 func (self *MapReduce) tick() {
-  fmt.Println("Tick")
+  // fmt.Println("Tick")
 }
 
 func (self *MapReduce) broadcast_testrpc() {
@@ -101,6 +200,7 @@ func (self *MapReduce) call(srv string, rpcname string, args interface{}, reply 
   if err == nil {
     return true
   }
+  fmt.Printf("Err: %s\n", err)
   return false
 }  
 
@@ -130,6 +230,8 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduce {
   mr.net_mode = mode
   // Initialization code
   mr.node_count = len(nodes)
+  mr.bucket = GetBucket()
+  mr.instances = map[int]MapReduceInstance{}
 
   if rpcs != nil {
     rpcs.Register(mr)      // caller created RPC Server

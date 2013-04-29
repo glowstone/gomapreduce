@@ -14,20 +14,20 @@ type Args interface {}
 type Reply interface {}
 
 
-type AssignTaskArgs struct {
-
+type AssignMapTaskArgs struct {
+	Job MapWorkerJob
 }
 
-type AssignTaskReply struct {
-
+type AssignMapTaskReply struct {
+	OK bool
 }
 
-type TaskCompleteArgs struct {
-
+type MapTaskCompleteArgs struct {
+	Job MapWorkerJob
 }
 
-type TaskCompleteReply struct {
-
+type MapTaskCompleteReply struct {
+	OK bool
 }
 
 
