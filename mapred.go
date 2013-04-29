@@ -64,7 +64,7 @@ func (self *MapReduce) Start() {
   self.StartMapReduce(0, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead
 }
 
-// The method used by the master node to assign jobs to all workers
+// The method used by the master node to start the entire mapreduce operation
 func (self *MapReduce) StartMapReduce(sequenceNumber int, params ConfigurationParams) {
   instance := MapReduceInstance{sequenceNumber, false, self.nodes[self.me]}
   fmt.Printf("Master(%d): new instance: %s\n", self.me, instance)
@@ -94,7 +94,7 @@ func (self *MapReduce) assignMapJobs(jobs []MapWorkerJob) {
   workers := append(self.nodes[:self.me], self.nodes[self.me:]...)  // The workers available for map tasks (everyone but me)
   fmt.Printf("Map Workers: %s\n", workers)
 
-  numUnfinished := len(jobs)    // The number of jobs that are not complete
+  numUnfinished := getNumberUnfinished(jobs)    // The number of jobs that are not complete
   var job MapWorkerJob
 
   for numUnfinished > 0 {   // While there are jobs left to complete
@@ -134,6 +134,7 @@ func (self *MapReduce) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTask
   return nil
 }
 
+// Iterates though jobs and counts the number that are unfinished.
 func getNumberUnfinished(jobs []MapWorkerJob) int{
   unfinished := 0
   for _, job := range jobs {
