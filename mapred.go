@@ -67,46 +67,67 @@ func (self *MapReduce) Start() {
 // The method used by the master node to assign jobs to all workers
 func (self *MapReduce) StartMapReduce(sequenceNumber int, params ConfigurationParams) {
   instance := MapReduceInstance{sequenceNumber, false, self.nodes[self.me]}
-  fmt.Printf("New instance: %s\n", instance)
-  workers := append(self.nodes[:self.me], self.nodes[self.me:]...)
-  fmt.Printf("Workers: %s\n", workers)
+  fmt.Printf("Master(%d): new instance: %s\n", self.me, instance)
 
   // Get the list of jobs that will need to be performed by workers
+  jobs := self.getMapJobs(params.InputFolder)
+
+  // While there are still unfinished worker jobs, assign new ones and wait for them to finish
+  self.assignMapJobs(jobs)
+}
+
+// Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
+// MapWorkerJob for each of them. Returns the list of jobs.
+func (self *MapReduce) getMapJobs(inputFolder string) []MapWorkerJob {
   jobs := []MapWorkerJob{}
 
-  keys := FilterKeysByPrefix(self.bucket, params.InputFolder + "/")   // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
+  keys := FilterKeysByPrefix(self.bucket, inputFolder + "/")   // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
   for _, key := range keys {
     jobs = append(jobs, MapWorkerJob{key, "", false, map[string]string{}})
   }
 
-  fmt.Println(jobs)
+  return jobs
+}
 
-  // While there are still unfinished worker jobs, assign new ones and wait for them to finish
-  numUnfinished := len(jobs)
+// Method used by the master. Assigns jobs to workers until all jobs are complete.
+func (self *MapReduce) assignMapJobs(jobs []MapWorkerJob) {
+  workers := append(self.nodes[:self.me], self.nodes[self.me:]...)  // The workers available for map tasks (everyone but me)
+  fmt.Printf("Map Workers: %s\n", workers)
+
+  numUnfinished := len(jobs)    // The number of jobs that are not complete
   var job MapWorkerJob
-  for numUnfinished > 0 {
+
+  for numUnfinished > 0 {   // While there are jobs left to complete
     fmt.Printf("Number unfinished: %d\n", numUnfinished)
-    jobIndex := getUnassignedJob(jobs)
-    job = jobs[jobIndex]
-    worker := workers[rand.Intn(len(workers))]    // TODO should only use an idle worker
-    jobs[jobIndex].Worker = worker
-    args := AssignMapTaskArgs{job}
-    reply := &AssignMapTaskReply{}
-    self.call(worker, "MapReduce.StartMapJob", args, reply)   // TODO this should be asynchronous RPC, check for err etc.
-    jobs[jobIndex].Completed = true
+    jobIndex := getUnassignedJob(jobs)  // Get the index of one of the unassigned jobs
+
+    if jobIndex != -1 {     // A value of -1 means there are no unassigned jobs
+      job = jobs[jobIndex]
+      worker := workers[rand.Intn(len(workers))]    // TODO should only use an idle worker
+      jobs[jobIndex].Worker = worker  // Assign the worker for the job
+      args := AssignMapTaskArgs{job}
+      reply := &AssignMapTaskReply{}
+
+      self.call(worker, "MapReduce.StartMapJob", args, reply)   // TODO this should be asynchronous RPC, check for err etc.
+      jobs[jobIndex].Completed = true     // TODO job should only be set to complete when the worker sends a "job complete" RPC
+    }
 
     numUnfinished = getNumberUnfinished(jobs)
     // TODO should sleep for some amount of time before looping again?
   }
 }
 
+// A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
+// then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
+// master where those values are stored so that reduce workers can get them when needed.
 func (self *MapReduce) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTaskReply) error{
   fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
   mapData, _ := self.bucket.GetObject(args.Job.Key)
   fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
-  // Run the map function on the data (asynchronously)
-  // Write the intermediate keys/values to somewhere (in memory for now)
-  // Set job.intermediateKeyLocation to the place that the value was written so reducers can find it
+  // TODO Run the map function on the data (asynchronously)
+  // TODO Write the intermediate keys/values to somewhere (in memory for now)
+  // TODO Set job.intermediateKeyLocation to the place that the value was written so reducers can find it
+
   args.Job.Completed = true
   reply.OK = true
 
@@ -192,6 +213,7 @@ func (self *MapReduce) call(srv string, rpcname string, args interface{}, reply 
   fmt.Println("Sending to", srv)
   c, errx := rpc.Dial("unix", srv)
   if errx != nil {
+    fmt.Printf("Error: %s\n", errx)
     return false
   }
   defer c.Close()
@@ -200,7 +222,7 @@ func (self *MapReduce) call(srv string, rpcname string, args interface{}, reply 
   if err == nil {
     return true
   }
-  fmt.Printf("Err: %s\n", err)
+  fmt.Printf("Error: %s\n", err)
   return false
 }  
 
