@@ -23,7 +23,7 @@ func port(tag string, host int) string {
 	return s
 }
 
-func cleanup(pxa []*MapReduce) {
+func cleanup(pxa []*MapReduceNode) {
 	for i := 0; i < len(pxa); i++ {
 		if pxa[i] != nil {
 			pxa[i].Kill()
@@ -31,27 +31,16 @@ func cleanup(pxa []*MapReduce) {
 	}
 }
 
-type CountMapper struct {
-	Id int
-}
-
-func (self CountMapper) get_id() int {
-	return self.Id
-}
-
-func (self CountMapper) Map_action() {
-	fmt.Println("Performing CountMapper action")
-}
-
 
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously
 
-	gob.Register(CountMapper{})
+
+	gob.Register(DemoMapper{})
 
 	const nnodes = 5
 	var pxh []string = make([]string, nnodes)         // Create empty slice of host strings
-	var pxa []*MapReduce = make([]*MapReduce, nnodes) // Create empty slice of MapReduce instances
+	var pxa []*MapReduceNode = make([]*MapReduceNode, nnodes) // Create empty slice of MapReduce instances
 	defer cleanup(pxa)
 
 		for i := 0; i < nnodes; i++ {
@@ -63,7 +52,7 @@ func TestBasic(t *testing.T) {
 		fmt.Println(pxa)
 		fmt.Println(pxh)
 
-		mapper := &CountMapper{Id:1}
+		mapper := &DemoMapper{Id:1}
 		fmt.Println(mapper)
 		//reducer = MakeReducer()
 		pxa[0].Start(mapper)

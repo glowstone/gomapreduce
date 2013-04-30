@@ -4,8 +4,6 @@ package gomapreduce
 Strucs for RPC communication between Map Reduce Node
 */
 
-import "fmt"
-
 const (
 	OK = "OK"
 	ErrNoKey = "ErrNoKey"
@@ -41,22 +39,5 @@ type TestRPCArgs struct {
 type TestRPCReply struct {
 	Err Err
 }
-
-
-
-// Compilable Mapper
-
-type ExampleMapper struct {
-	Id int
-}
-
-func (self ExampleMapper) get_id() int {
-	return self.Id
-}
-
-func (self ExampleMapper) Map_action() {
-	fmt.Println("Performing example Mapper action")
-}
-
 
 
