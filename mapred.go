@@ -42,26 +42,24 @@ type ConfigurationParams struct {
 }
 
 type MapReduceInstance struct {
-  instanceNumber int
-  finished bool
-  master string
+  instanceNumber int    // Unique ID for the instance
+  finished bool         // Whether the instance is finished
+  master string         // The node acting as master for the instance
 }
 
 type MapWorkerJob struct {
-  Key string    // The key where the data for the job can be found
-  Worker string   // empty string if no assigned worker
-  Completed bool
-  // Map of intermediate keys to the location of the values for those keys (or some way for reducers to locate that data)
-  IntermediateKeyLocation map[string]string
+  Key string      // The key where the data for the job can be found
+  Worker string   // The node assigned as the mapper for this job. Empty string if no assigned worker
+  Completed bool  // Whether the job is completed or not
 }
 
 
 func (self *MapReduce) Start() {
 	fmt.Println("Start MapReduce")
   self.broadcast_testrpc()
-  master := self.nodes[rand.Intn(len(self.nodes))]  // Or do we want to always choose master to be the called node? Then the client can choose who they want to be the master
-  fmt.Printf("Master: %s\n", master)
-  self.StartMapReduce(0, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead
+  sequenceNumber := 0     // TODO should be a parameter of Start() ?
+  // TODO should this node be the master, or should it pick a master at random? Using this node as the maste for now.
+  go self.StartMapReduce(sequenceNumber, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead
 }
 
 // The method used by the master node to start the entire mapreduce operation
@@ -70,10 +68,10 @@ func (self *MapReduce) StartMapReduce(sequenceNumber int, params ConfigurationPa
   fmt.Printf("Master(%d): new instance: %s\n", self.me, instance)
 
   // Get the list of jobs that will need to be performed by workers
-  jobs := self.getMapJobs(params.InputFolder)
+  mapJobs := self.getMapJobs(params.InputFolder)
 
-  // While there are still unfinished worker jobs, assign new ones and wait for them to finish
-  self.assignMapJobs(jobs)
+  // Assign the map jobs to workers
+  self.assignMapJobs(mapJobs)
 }
 
 // Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
@@ -81,9 +79,9 @@ func (self *MapReduce) StartMapReduce(sequenceNumber int, params ConfigurationPa
 func (self *MapReduce) getMapJobs(inputFolder string) []MapWorkerJob {
   jobs := []MapWorkerJob{}
 
-  keys := FilterKeysByPrefix(self.bucket, inputFolder + "/")   // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
+  keys := FilterKeysByPrefix(self.bucket, inputFolder + "/")  // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
   for _, key := range keys {
-    jobs = append(jobs, MapWorkerJob{key, "", false, map[string]string{}})
+    jobs = append(jobs, MapWorkerJob{key, "", false})   // Construct a new job object and append to the list of them
   }
 
   return jobs
@@ -101,15 +99,15 @@ func (self *MapReduce) assignMapJobs(jobs []MapWorkerJob) {
     fmt.Printf("Number unfinished: %d\n", numUnfinished)
     jobIndex := getUnassignedJob(jobs)  // Get the index of one of the unassigned jobs
 
-    if jobIndex != -1 {     // A value of -1 means there are no unassigned jobs
+    if jobIndex != -1 {     // A value of -1 means that all jobs are assigned
       job = jobs[jobIndex]
-      worker := workers[rand.Intn(len(workers))]    // TODO should only use an idle worker
+      worker := workers[rand.Intn(len(workers))]    // Get a random worker. TODO should only use an idle node
       jobs[jobIndex].Worker = worker  // Assign the worker for the job
       args := AssignMapTaskArgs{job}
       reply := &AssignMapTaskReply{}
 
       self.call(worker, "MapReduce.StartMapJob", args, reply)   // TODO this should be asynchronous RPC, check for err etc.
-      jobs[jobIndex].Completed = true     // TODO job should only be set to complete when the worker sends a "job complete" RPC
+      jobs[jobIndex].Completed = true     // TODO job should only be set to complete when the worker actually finishes it
     }
 
     numUnfinished = getNumberUnfinished(jobs)
@@ -124,11 +122,9 @@ func (self *MapReduce) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTask
   fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
   mapData, _ := self.bucket.GetObject(args.Job.Key)
   fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
-  // TODO Run the map function on the data (asynchronously)
-  // TODO Write the intermediate keys/values to somewhere (in memory for now)
-  // TODO Set job.intermediateKeyLocation to the place that the value was written so reducers can find it
+  // TODO Run the map function on the data
+  // TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
 
-  args.Job.Completed = true
   reply.OK = true
 
   return nil
