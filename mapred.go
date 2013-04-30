@@ -35,8 +35,9 @@ type MapReduceNode struct {
 	// State for master role
 	jobs map[int] Job     // Maps job_id -> Job
 
-	// State for worker roles	
+	// State for worker roles
 }
+
 
 type ConfigurationParams struct {
 	InputFolder string    // The folder within the "mapreduce_testing1" s3 bucket
@@ -45,6 +46,7 @@ type ConfigurationParams struct {
 }
 
 
+// probably switch this to TaskState or something to indicate it tracks progress on Tasks
 type MapWorkerJob struct {
 	Key string      // The key where the data for the job can be found
 	Worker string   // The node assigned as the mapper for this job. Empty string if no assigned worker
@@ -127,7 +129,7 @@ func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskRe
 // A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
 // then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
 // master where those values are stored so that reduce workers can get them when needed.
-func (self *MapReduceNode) StartMapJob(args *AssignTaskArgs, reply *AssignTaskReply) error{
+func (self *MapReduceNode) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTaskReply) error{
 	fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
 	mapData, _ := self.bucket.GetObject(args.Job.Key)
 	fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
@@ -175,8 +177,8 @@ func (self *MapReduceNode) assignMapJobs(jobs []MapWorkerJob) {
 			job = jobs[jobIndex]
 			worker := workers[rand.Intn(len(workers))]    // Get a random worker. TODO should only use an idle node
 			jobs[jobIndex].Worker = worker  // Assign the worker for the job
-			args := AssignTaskArgs{job}
-			reply := &AssignTaskReply{}
+			args := AssignMapTaskArgs{job}
+			reply := &AssignMapTaskReply{}
 
 			self.call(worker, "MapReduce.StartMapJob", args, reply)   // TODO this should be asynchronous RPC, check for err etc.
 			jobs[jobIndex].Completed = true     // TODO job should only be set to complete when the worker actually finishes it

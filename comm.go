@@ -13,17 +13,31 @@ type Err string
 type Args interface {}
 type Reply interface {}
 
+// for tgarv
+type AssignMapTaskArgs struct {
+	Job MapWorkerJob
+}
+
+type AssignMapTaskReply struct {
+	OK bool
+}
+// end
+
 
 type AssignTaskArgs struct {
-	Job MapWorkerJob
+	Name string       // Task type (either 'map' or 'reduce')
+	Task Task         // MapTask or ReduceTask
+	Assigner int      // index of node assigning the task, maybe call Master?
 }
 
 type AssignTaskReply struct {
 	OK bool
 }
 
+
+
 type TaskCompleteArgs struct {
-	Job MapWorkerJob
+	Task_id string
 }
 
 type TaskCompleteReply struct {

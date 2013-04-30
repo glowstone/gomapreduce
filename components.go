@@ -26,12 +26,13 @@ type Task interface {
 }
 
 type MapTask struct {
-	id string           // String unique id for unlimited possibilities.  
-	mapper Mapper       // Implementation of Mapper interface.
+	Id string           // String unique id for unlimited possibilities.
+	Key string          // Input key.
+	Mapper Mapper       // Implementation of Mapper interface.
 }
 
-
 type ReduceTask struct {
-	id int              // String unqiue id for unlimited possibilities.
-	reducer Reducer     // Implementation of Reducer interface.
+	Id int              // String unqiue id for unlimited possibilities.
+	Key string          // Intermediate key.
+	Reducer Reducer     // Implementation of Reducer interface.
 }
