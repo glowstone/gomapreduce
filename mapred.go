@@ -30,10 +30,14 @@ type MapReduce struct {
 
 }
 
+func randNumber() int {
+  return rand.Int()
+}
 
-func (self *MapReduce) Start() {
-	fmt.Println("Start MapReduce")
-  self.broadcast_testrpc()
+
+func (self *MapReduce) Start(mapper Mapper) {
+	fmt.Println("Start MapReduce", mapper)
+  self.broadcast_testrpc(mapper)
 }
 
 /*
@@ -43,14 +47,16 @@ func (self *MapReduce) tick() {
   fmt.Println("Tick")
 }
 
-func (self *MapReduce) broadcast_testrpc() {
-  fmt.Println(self.nodes)
+func (self *MapReduce) broadcast_testrpc(maptask Mapper) {
+  fmt.Println(self.nodes, maptask)
   for index, node := range self.nodes {
     if index == self.me {
       continue
     }
     args := &TestRPCArgs{}         // declare and init zero valued struct
-    args.Number = 5
+    args.Number = rand.Int()
+    //task := ExampleMapper{}
+    args.Mapper = maptask
     var reply TestRPCReply
     ok := self.call(node, "MapReduce.TestRPC", args, &reply)
     if ok {
@@ -67,7 +73,9 @@ func (self *MapReduce) broadcast_testrpc() {
 
 // Handle test RPC RPC calls.
 func (self *MapReduce) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
-  fmt.Println("Received TestRPC")
+  fmt.Println("Received TestRPC", args.Number)
+  args.Mapper.Map_action()
+  fmt.Printf("Task id: %d\n", args.Mapper.get_id())
   reply.Err = OK
   return nil
 }
@@ -138,6 +146,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduce {
     rpcs.Register(mr)      // Register exported methods of MapReduceNode with RPC Server         
     gob.Register(TestRPCArgs{})
     gob.Register(TestRPCReply{})
+    gob.Register(ExampleMapper{})
 
     // Prepare node to receive connections
 
