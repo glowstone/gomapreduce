@@ -32,7 +32,6 @@ type MapReduceNode struct {
 
 	instances map[int] MapReduceInstance  // Maps instanceNumber -> Instance
 	bucket s3.Bucket
-
 }
 
 type ConfigurationParams struct {
@@ -57,33 +56,48 @@ func randNumber() int {
   return rand.Int()
 }
 
-// Client would like to start a Job instance which is composed of Task 
-// instances (MapTasks or Reduce Tasks). Client passes his implemented Mapper,
-// Reducer, and JobConfig instance. Any configuration settings not for a 
-// particular job should be read from the environment.
+
 /*
+Client would like to start a Job instance which is composed of Task 
+instances (MapTasks or Reduce Tasks). Client passes his implemented Mapper,
+Reducer, and JobConfig instance. Any configuration settings not for a 
+particular job should be read from the environment.
+Spawns a master_role thread to perform the requested Job by breaking it into 
+tasks that are allocated to workers.
 
+Aside: Currently, this is called from a client which has a local MapReduceNode running
+at it, but a wrapper that allows start to be called remotely via RPC could be 
+created. We don't currently have any scenarios where the client is not also a 
+member of the network but it is totally possible.
 */
-
-func (self *MapReduceNode) Start(mapper Mapper) {
-	fmt.Println("Start MapReduce", mapper)
-  	self.broadcast_testrpc(mapper)
-	//sequenceNumber := 0     // TODO should be a parameter of Start() ?
+func (self *MapReduceNode) Start(mapper Mapper, reducer Reducer) {
+	fmt.Println("Start MapReduce", mapper, reducer)
+  	self.broadcast_testrpc(mapper)          // temporary
+	sequenceNumber := 0     // TODO should be a parameter of Start() ?
 	// TODO should this node be the master, or should it pick a master at random? Using this node as the maste for now.
-	// go self.StartMapReduce(sequenceNumber, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead
+	go self.master_role(sequenceNumber, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead // I don't think it should be an RPC? 
 }
 
-// The method used by the master node to start the entire mapreduce operation
-func (self *MapReduceNode) StartMapReduce(sequenceNumber int, params ConfigurationParams) {
-	instance := MapReduceInstance{sequenceNumber, false, self.nodes[self.me]}
-	fmt.Printf("Master(%d): new instance: %s\n", self.me, instance)
+
+/*
+Performs the requested Job by breaking it into tasks based on the JobConfig,
+allocating the Tasks to workers, and monitors progress on the Job until it is 
+complete.
+The method used by the master node to start the entire mapreduce operation
+*/
+func (self *MapReduceNode) master_role(sequenceNumber int, params ConfigurationParams) {
+	
+	//instance := MapReduceInstance{sequenceNumber, false, self.nodes[self.me]}
+	fmt.Printf("Master(%d): new instance: %s\n", self.me)
 
 	// Get the list of jobs that will need to be performed by workers
-	mapJobs := self.getMapJobs(params.InputFolder)
+	//mapJobs := self.getMapJobs(params.InputFolder)
 
 	// Assign the map jobs to workers
-	self.assignMapJobs(mapJobs)
+	//self.assignMapJobs(mapJobs)
 }
+
+
 
 // Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
 // MapWorkerJob for each of them. Returns the list of jobs.
@@ -141,6 +155,9 @@ func (self *MapReduceNode) StartMapJob(args *AssignMapTaskArgs, reply *AssignMap
 	return nil
 }
 
+// Helpers
+///////////////////////////////////////////////////////////////////////////////
+
 // Iterates though jobs and counts the number that are unfinished.
 func getNumberUnfinished(jobs []MapWorkerJob) int{
 	unfinished := 0
@@ -164,9 +181,11 @@ func getUnassignedJob(jobs []MapWorkerJob) int {
 	return -1  // TODO check this
 }
 
-/*
- *
- */
+
+// Exported RPC functions (internal to mapreduce service)
+///////////////////////////////////////////////////////////////////////////////
+
+
 func (self *MapReduceNode) tick() {
 	fmt.Println("Tick")
 }
@@ -199,7 +218,8 @@ func (self *MapReduceNode) broadcast_testrpc(maptask Mapper) {
 // Handle test RPC RPC calls.
 func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
   fmt.Println("Received TestRPC", args.Number)
-  args.Mapper.Map_action(42)
+  result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
+  fmt.Println(result)
   //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
   reply.Err = OK
   return nil

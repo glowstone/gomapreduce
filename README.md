@@ -3,8 +3,9 @@
 # Quickstart
 
 	# set the GOPATH to your go workspace
-	export GOPATH=$HOME/6.824/workspace
-
+	export GOPATH=$HOME/go-workspace
+	cd $HOME/go-workspace/src
+	git clone git@github.com:dghubble/gomapreduce.git gomapreduce
 
 # Overview
 

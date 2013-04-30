@@ -52,10 +52,9 @@ func TestBasic(t *testing.T) {
 		fmt.Println(pxa)
 		fmt.Println(pxh)
 
-		mapper := &DemoMapper{Id:1}
-		fmt.Println(mapper)
-		//reducer = MakeReducer()
-		pxa[0].Start(mapper)
+		mapper := &DemoMapper{}
+		reducer := &DemoReducer{}
+		pxa[0].Start(mapper, reducer)
 
 		time.Sleep(2000 * time.Millisecond)
 
