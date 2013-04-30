@@ -1,7 +1,7 @@
 package gomapreduce
 
 /*
-Strucs for RPC communication between Map Reduce Node
+Strucs for RPC communication between MapReduceNode instances
 */
 
 const (
@@ -14,19 +14,19 @@ type Args interface {}
 type Reply interface {}
 
 
-type AssignMapTaskArgs struct {
+type AssignTaskArgs struct {
 	Job MapWorkerJob
 }
 
-type AssignMapTaskReply struct {
+type AssignTaskReply struct {
 	OK bool
 }
 
-type MapTaskCompleteArgs struct {
+type TaskCompleteArgs struct {
 	Job MapWorkerJob
 }
 
-type MapTaskCompleteReply struct {
+type TaskCompleteReply struct {
 	OK bool
 }
 
