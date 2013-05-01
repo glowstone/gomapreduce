@@ -94,3 +94,18 @@ func SplitFileIntoChunks(filepath string, bucket s3.Bucket, directory string, ch
 
 	return true
 }
+// func main() {
+// 	bucket := GetBucket()
+// 	fmt.Printf("Bucket: %s\n", bucket)
+
+// 	// SplitFileIntoChunks("../../final_project/texts/output.txt", bucket, "small_test3", 100000)
+
+// 	// jobs := []WorkerJob{}
+
+// 	keys := FilterKeysByPrefix(bucket, "small_test3/")	// Print out all the keys/chunks in the small_test/ directory
+// 	for _, key := range keys {
+// 		fmt.Println(key)
+// 		// jobs = append(jobs, WorkerJob{key, "", false, map[string]string{}})
+// 	}
+
+// }

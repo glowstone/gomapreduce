@@ -19,21 +19,25 @@ import (
 	"github.com/jacobsa/aws/s3"
 )
 
-type MapReduce struct {
-	mu sync.Mutex
-	l net.Listener
-	dead bool
-	unreliable bool
-	rpcCount int
+type MapReduceNode struct {
+	mu sync.Mutex         // singleton mutex for node
+	l net.Listener        // RPC network listener
+	dead bool             // used for testing dead nodes
+	unreliable bool       // used for testing unreliable nodes
+	rpcCount int          // maintain count of RPC calls
+
 	me int                // index into nodes
 	nodes []string        // MapReduceNode port names
 	node_count int
 	net_mode string       // "unix" or "tcp"
+	bucket s3.Bucket      // temporary
 
-	instances map[int] MapReduceInstance  // Maps instanceNumber -> Instance
-	bucket s3.Bucket
+	// State for master role
+	jobs map[int] Job     // Maps job_id -> Job
 
+	// State for worker roles
 }
+
 
 type ConfigurationParams struct {
 	InputFolder string    // The folder within the "mapreduce_testing1" s3 bucket
@@ -41,12 +45,8 @@ type ConfigurationParams struct {
 	// TODO Should contain map and reduce functions, chunk sizes etc.
 }
 
-type MapReduceInstance struct {
-	instanceNumber int    // Unique ID for the instance
-	finished bool         // Whether the instance is finished
-	master string         // The node acting as master for the instance
-}
 
+// probably switch this to TaskState or something to indicate it tracks progress on Tasks
 type MapWorkerJob struct {
 	Key string      // The key where the data for the job can be found
 	Worker string   // The node assigned as the mapper for this job. Empty string if no assigned worker
@@ -54,29 +54,103 @@ type MapWorkerJob struct {
 }
 
 
-func (self *MapReduce) Start() {
-	fmt.Println("Start MapReduce")
-	self.broadcast_testrpc()
+/*
+Client would like to start a Job instance which is composed of Task 
+instances (MapTasks or Reduce Tasks). Client passes his implemented Mapper,
+Reducer, and JobConfig instance. Any configuration settings not for a 
+particular job should be read from the environment.
+Spawns a master_role thread to perform the requested Job by breaking it into 
+tasks that are allocated to workers.
+
+Aside: Currently, this is called from a client which has a local MapReduceNode running
+at it, but a wrapper that allows start to be called remotely via RPC could be 
+created. We don't currently have any scenarios where the client is not also a 
+member of the network but it is totally possible.
+*/
+func (self *MapReduceNode) Start(mapper Mapper, reducer Reducer) {
+	fmt.Println("Start MapReduce", mapper, reducer)
+  	self.broadcast_testrpc(mapper)          // temporary
 	sequenceNumber := 0     // TODO should be a parameter of Start() ?
+
 	// TODO should this node be the master, or should it pick a master at random? Using this node as the maste for now.
-	go self.StartMapReduce(sequenceNumber, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead
+	// Good point, I suppose the question here how to handle a single client who wants to do a lot of jobs. 
+	go self.master_role(sequenceNumber, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead // I don't think it should be an RPC? 
 }
 
-// The method used by the master node to start the entire mapreduce operation
-func (self *MapReduce) StartMapReduce(sequenceNumber int, params ConfigurationParams) {
-	instance := MapReduceInstance{sequenceNumber, false, self.nodes[self.me]}
-	fmt.Printf("Master(%d): new instance: %s\n", self.me, instance)
 
-	// Get the list of jobs that will need to be performed by workers
-	mapJobs := self.getMapJobs(params.InputFolder)
+/*
+Performs the requested Job by breaking it into tasks based on the JobConfig,
+allocating the Tasks to workers, and monitors progress on the Job until it is 
+complete.
+The method used by the master node to start the entire mapreduce operation
+*/
+func (self *MapReduceNode) master_role(sequenceNumber int, params ConfigurationParams) {
+	job := Job{job_id: generate_uuid(), 
+			   finished: false, 
+			   master: self.me,  // storing index into nodes prevents long server names being shown upon printing job 
+			   status: "starting",
+			}
+	debug(fmt.Sprintf("(svr:%d) master_role: job: %v", self.me, job))
+
+	// Split input data into M components. Note this is done already as part of S3 code.
+
+	// Get the list of tasks that will need to be performed by workers
+	//mapJobs := self.getMapJobs(params.InputFolder)
+	//fmt.Println(mapJobs)
 
 	// Assign the map jobs to workers
-	self.assignMapJobs(mapJobs)
+	//self.assignMapJobs(mapJobs)
 }
+
+
+// Exported RPC functions (internal to mapreduce service)
+///////////////////////////////////////////////////////////////////////////////
+
+// Accepts a request to perform a MapTask or an AcceptTask. May decline the
+// request if overworked
+func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskReply) error {
+	debug(fmt.Sprintf("Received a task"))
+
+	//fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
+	//mapData, _ := self.bucket.GetObject(args.Job.Key)
+	//fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
+	// TODO Run the map function on the data
+	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
+
+	reply.OK = true
+
+	return nil
+
+}
+
+//func (self *MapReduceNode) Get(...)
+
+
+// A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
+// then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
+// master where those values are stored so that reduce workers can get them when needed.
+func (self *MapReduceNode) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTaskReply) error{
+	fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
+	mapData, _ := self.bucket.GetObject(args.Job.Key)
+	fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
+	// TODO Run the map function on the data
+	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
+
+	reply.OK = true
+
+	return nil
+}
+
+
+// Helpers
+///////////////////////////////////////////////////////////////////////////////
+// Currently some are methods of the MapReduceNode, but I think they can be
+// made as regular functions after bucket is no longer attached to the 
+// MapReduceNode
 
 // Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
 // MapWorkerJob for each of them. Returns the list of jobs.
-func (self *MapReduce) getMapJobs(inputFolder string) []MapWorkerJob {
+func (self *MapReduceNode) getMapJobs(inputFolder string) []MapWorkerJob {
 	jobs := []MapWorkerJob{}
 
 	keys := FilterKeysByPrefix(self.bucket, inputFolder + "/")  // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
@@ -88,7 +162,7 @@ func (self *MapReduce) getMapJobs(inputFolder string) []MapWorkerJob {
 }
 
 // Method used by the master. Assigns jobs to workers until all jobs are complete.
-func (self *MapReduce) assignMapJobs(jobs []MapWorkerJob) {
+func (self *MapReduceNode) assignMapJobs(jobs []MapWorkerJob) {
 	workers := append(self.nodes[:self.me], self.nodes[self.me:]...)  // The workers available for map tasks (everyone but me)
 	fmt.Printf("Map Workers: %s\n", workers)
 
@@ -115,21 +189,6 @@ func (self *MapReduce) assignMapJobs(jobs []MapWorkerJob) {
 	}
 }
 
-// A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
-// then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
-// master where those values are stored so that reduce workers can get them when needed.
-func (self *MapReduce) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTaskReply) error{
-	fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
-	mapData, _ := self.bucket.GetObject(args.Job.Key)
-	fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
-	// TODO Run the map function on the data
-	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
-
-	reply.OK = true
-
-	return nil
-}
-
 // Iterates though jobs and counts the number that are unfinished.
 func getNumberUnfinished(jobs []MapWorkerJob) int{
 	unfinished := 0
@@ -153,40 +212,51 @@ func getUnassignedJob(jobs []MapWorkerJob) int {
 	return -1  // TODO check this
 }
 
-/*
- *
- */
-func (self *MapReduce) tick() {
-	// fmt.Println("Tick")
+
+
+
+
+
+
+
+
+func (self *MapReduceNode) tick() {
+	fmt.Println("Tick")
 }
 
-func (self *MapReduce) broadcast_testrpc() {
-	fmt.Println(self.nodes)
-	for index, node := range self.nodes {
-		if index == self.me {
-			continue
-		}
-		args := &TestRPCArgs{}         // declare and init zero valued struct
-		args.Number = 5
-		var reply TestRPCReply
-		ok := self.call(node, "MapReduce.TestRPC", args, &reply)
-		if ok {
-			fmt.Println("Successfully sent")
-			fmt.Println(reply)
-		} else {
-			fmt.Println("Sent but not received")
-			fmt.Println(reply)
-		}
-	}
-	return
+
+func (self *MapReduceNode) broadcast_testrpc(maptask Mapper) {
+  fmt.Println(self.nodes, maptask)
+  for index, node := range self.nodes {
+    if index == self.me {
+      continue
+    }
+    args := &TestRPCArgs{}         // declare and init zero valued struct
+    args.Number = rand.Int()
+    //task := ExampleMapper{}
+    args.Mapper = maptask
+    var reply TestRPCReply
+    ok := self.call(node, "MapReduceNode.TestRPC", args, &reply)
+    if ok {
+      fmt.Println("Successfully sent")
+      fmt.Println(reply)
+    } else {
+      fmt.Println("Sent but not received")
+      fmt.Println(reply)
+    }
+  }
+  return
 }
 
 
 // Handle test RPC RPC calls.
-func (self *MapReduce) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
-	fmt.Println("Received TestRPC")
-	reply.Err = OK
-	return nil
+func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
+  fmt.Println("Received TestRPC", args.Number)
+  result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
+  fmt.Println(result)
+  //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
+  reply.Err = OK
+  return nil
 }
 
 
@@ -206,7 +276,7 @@ func (self *MapReduce) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
 // please use call() to send all RPCs, in client.go and server.go.
 // please don't change this function.
 //
-func (self *MapReduce) call(srv string, rpcname string, args interface{}, reply interface{}) bool {
+func (self *MapReduceNode) call(srv string, rpcname string, args interface{}, reply interface{}) bool {
 	fmt.Println("Sending to", srv)
 	c, errx := rpc.Dial("unix", srv)
 	if errx != nil {
@@ -229,7 +299,7 @@ func (self *MapReduce) call(srv string, rpcname string, args interface{}, reply 
 // for testing.
 // please do not change this function.
 //
-func (self *MapReduce) Kill() {
+func (self *MapReduceNode) Kill() {
 	self.dead = true
 	if self.l != nil {
 		self.l.Close()
@@ -241,123 +311,121 @@ func (self *MapReduce) Kill() {
 // The ports of all the nodes (including this one) are in nodes[], 
 // this node's port is nodes[me]
 
-func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduce {
-	// Initialize a MapReduceNode
-	mr := &MapReduce{}
-	mr.nodes = nodes    
-	mr.me = me
-	mr.net_mode = mode
-	// Initialization code
-	mr.node_count = len(nodes)
-	mr.bucket = GetBucket()
-	mr.instances = map[int]MapReduceInstance{}
+func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode {
+  // Initialize a MapReduceNode
+  mr := &MapReduceNode{}
+  mr.nodes = nodes    
+  mr.me = me
+  mr.net_mode = mode
+  // Initialization code
+  mr.node_count = len(nodes)
 
-	if rpcs != nil {
-		rpcs.Register(mr)      // caller created RPC Server
-	} else {
-		rpcs = rpc.NewServer() // creates a new RPC server
-		rpcs.Register(mr)      // Register exported methods of MapReduceNode with RPC Server         
-		gob.Register(TestRPCArgs{})
-		gob.Register(TestRPCReply{})
+  if rpcs != nil {
+    rpcs.Register(mr)      // caller created RPC Server
+  } else {
+    rpcs = rpc.NewServer() // creates a new RPC server
+    rpcs.Register(mr)      // Register exported methods of MapReduceNode with RPC Server         
+    gob.Register(TestRPCArgs{})
+    gob.Register(TestRPCReply{})
 
-		// Prepare node to receive connections
+    // Prepare node to receive connections
 
-		if mode == "tcp" {
-			fmt.Println("Making in TCP mode")
-			listener, error := net.Listen("tcp", ":8080");
+    if mode == "tcp" {
+      fmt.Println("Making in TCP mode")
+      listener, error := net.Listen("tcp", ":8080");
 
-			if error != nil {
-				log.Fatal("listen error: ", error);
-			}
-			mr.l = listener      // Set MapReduceNode listener
-			go func() {
-				for mr.dead == false {
-					conn, err := mr.l.Accept()
-					if err == nil && mr.dead == false {
-						if mr.unreliable && (rand.Int63() % 1000) < 100 {
-							// discard the request.
-							conn.Close()
-						} else if mr.unreliable && (rand.Int63() % 1000) < 200 {
-							// process the request but force discard of reply.
-							c1 := conn.(*net.UnixConn)
-							f, _ := c1.File()
-							err := syscall.Shutdown(int(f.Fd()), syscall.SHUT_WR)
-							if err != nil {
-								fmt.Printf("shutdown: %v\n", err)
-							}
-							mr.rpcCount++
-							go rpcs.ServeConn(conn)
-						} else {
-							mr.rpcCount++
-							go rpcs.ServeConn(conn)
-						}
-					} else if err == nil {
-						conn.Close()
-					}
-					if err != nil && mr.dead == false {
-						fmt.Printf("Paxos(%v) accept: %v\n", me, err.Error())
-					}
-				}
-			}()
+      if error != nil {
+        log.Fatal("listen error: ", error);
+      }
+      mr.l = listener      // Set MapReduceNode listener
+      go func() {
+        for mr.dead == false {
+          conn, err := mr.l.Accept()
+          if err == nil && mr.dead == false {
+            if mr.unreliable && (rand.Int63() % 1000) < 100 {
+              // discard the request.
+              conn.Close()
+            } else if mr.unreliable && (rand.Int63() % 1000) < 200 {
+              // process the request but force discard of reply.
+              c1 := conn.(*net.UnixConn)
+              f, _ := c1.File()
+              err := syscall.Shutdown(int(f.Fd()), syscall.SHUT_WR)
+              if err != nil {
+                fmt.Printf("shutdown: %v\n", err)
+              }
+              mr.rpcCount++
+              go rpcs.ServeConn(conn)
+            } else {
+              mr.rpcCount++
+              go rpcs.ServeConn(conn)
+            }
+          } else if err == nil {
+            conn.Close()
+          }
+          if err != nil && mr.dead == false {
+            fmt.Printf("Paxos(%v) accept: %v\n", me, err.Error())
+          }
+        }
+      }()
 
-		} else {
-			fmt.Println("Making in Unix mode")
-			// mode assumed to be "unix"
+    } else {
+      fmt.Println("Making in Unix mode")
+      // mode assumed to be "unix"
 
-			os.Remove(nodes[me]) // only needed for "unix"
-			listener, error := net.Listen("unix", nodes[me]);
-			if error != nil {
-				log.Fatal("listen error: ", error);
-			}
-			mr.l = listener      // Set MapReduceNode listener
+      os.Remove(nodes[me]) // only needed for "unix"
+      listener, error := net.Listen("unix", nodes[me]);
+      if error != nil {
+        log.Fatal("listen error: ", error);
+      }
+      mr.l = listener      // Set MapReduceNode listener
 
-			
+      
 
-			// please do not change any of the following code,
-			// or do anything to subvert it.
-			
-			// create a thread to accept RPC connections
-			go func() {
-				for mr.dead == false {
-					conn, err := mr.l.Accept()
-					if err == nil && mr.dead == false {
-						if mr.unreliable && (rand.Int63() % 1000) < 100 {
-							// discard the request.
-							conn.Close()
-						} else if mr.unreliable && (rand.Int63() % 1000) < 200 {
-							// process the request but force discard of reply.
-							c1 := conn.(*net.UnixConn)
-							f, _ := c1.File()
-							err := syscall.Shutdown(int(f.Fd()), syscall.SHUT_WR)
-							if err != nil {
-								fmt.Printf("shutdown: %v\n", err)
-							}
-							mr.rpcCount++
-							go rpcs.ServeConn(conn)
-						} else {
-							mr.rpcCount++
-							go rpcs.ServeConn(conn)
-						}
-					} else if err == nil {
-						conn.Close()
-					}
-					if err != nil && mr.dead == false {
-						fmt.Printf("Paxos(%v) accept: %v\n", me, err.Error())
-					}
-				}
-			}()
-		}
+      // please do not change any of the following code,
+      // or do anything to subvert it.
+      
+      // create a thread to accept RPC connections
+      go func() {
+        for mr.dead == false {
+          conn, err := mr.l.Accept()
+          if err == nil && mr.dead == false {
+            if mr.unreliable && (rand.Int63() % 1000) < 100 {
+              // discard the request.
+              conn.Close()
+            } else if mr.unreliable && (rand.Int63() % 1000) < 200 {
+              // process the request but force discard of reply.
+              c1 := conn.(*net.UnixConn)
+              f, _ := c1.File()
+              err := syscall.Shutdown(int(f.Fd()), syscall.SHUT_WR)
+              if err != nil {
+                fmt.Printf("shutdown: %v\n", err)
+              }
+              mr.rpcCount++
+              go rpcs.ServeConn(conn)
+            } else {
+              mr.rpcCount++
+              go rpcs.ServeConn(conn)
+            }
+          } else if err == nil {
+            conn.Close()
+          }
+          if err != nil && mr.dead == false {
+            fmt.Printf("Paxos(%v) accept: %v\n", me, err.Error())
+          }
+        }
+      }()
+    }
 
-	}
+  }
 
-	go func() {
-		for mr.dead == false {
-			mr.tick()
-			time.Sleep(250 * time.Millisecond)
-		}
-	}()
+  go func() {
+    for mr.dead == false {
+      mr.tick()
+      time.Sleep(250 * time.Millisecond)
+    }
+  }()
 
-	return mr
+  return mr
 }
 
 
