@@ -13,10 +13,9 @@ import (
 	"sync"
 	"fmt"
 	"math/rand"
-	"math"
+	// "math"
 	"time"
 	"encoding/gob"
-	"github.com/jacobsa/aws/s3"
 )
 
 type MapReduceNode struct {
@@ -30,7 +29,6 @@ type MapReduceNode struct {
 	nodes []string        // MapReduceNode port names
 	node_count int
 	net_mode string       // "unix" or "tcp"
-	bucket s3.Bucket      // temporary
 
 	// State for master role
 	jobs map[int] Job     // Maps job_id -> Job
@@ -71,10 +69,11 @@ func (self *MapReduceNode) Start(mapper Mapper, reducer Reducer) {
 	fmt.Println("Start MapReduce", mapper, reducer)
   	self.broadcast_testrpc(mapper)          // temporary
 	sequenceNumber := 0     // TODO should be a parameter of Start() ?
+	inputAccessor := makeS3Accessor("small_test") 		// TODO get folder from input parameters instead of hardcoding
 
 	// TODO should this node be the master, or should it pick a master at random? Using this node as the maste for now.
 	// Good point, I suppose the question here how to handle a single client who wants to do a lot of jobs. 
-	go self.master_role(sequenceNumber, ConfigurationParams{"small_test", ""})  // TODO should be RPC call to master instead // I don't think it should be an RPC? 
+	go self.master_role(sequenceNumber, ConfigurationParams{"small_test", ""}, inputAccessor)  // TODO should be RPC call to master instead // I don't think it should be an RPC? 
 }
 
 
@@ -84,18 +83,20 @@ allocating the Tasks to workers, and monitors progress on the Job until it is
 complete.
 The method used by the master node to start the entire mapreduce operation
 */
-func (self *MapReduceNode) master_role(sequenceNumber int, params ConfigurationParams) {
+func (self *MapReduceNode) master_role(sequenceNumber int, params ConfigurationParams, inputAccessor InputAccessor) {
 	job := Job{job_id: generate_uuid(), 
 			   finished: false, 
 			   master: self.me,  // storing index into nodes prevents long server names being shown upon printing job 
 			   status: "starting",
+			   inputAccessor: inputAccessor,
 			}
 	debug(fmt.Sprintf("(svr:%d) master_role: job: %v", self.me, job))
 
 	// Split input data into M components. Note this is done already as part of S3 code.
 
 	// Get the list of tasks that will need to be performed by workers
-	//mapJobs := self.getMapJobs(params.InputFolder)
+	mapJobs := self.getMapJobs(inputAccessor)
+	fmt.Printf("Jobs: %s\n", mapJobs)
 	//fmt.Println(mapJobs)
 
 	// Assign the map jobs to workers
@@ -131,8 +132,8 @@ func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskRe
 // master where those values are stored so that reduce workers can get them when needed.
 func (self *MapReduceNode) StartMapJob(args *AssignMapTaskArgs, reply *AssignMapTaskReply) error{
 	fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
-	mapData, _ := self.bucket.GetObject(args.Job.Key)
-	fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
+	// mapData, _ := self.bucket.GetObject(args.Job.Key)
+	// fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
 	// TODO Run the map function on the data
 	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
 
@@ -150,10 +151,10 @@ func (self *MapReduceNode) StartMapJob(args *AssignMapTaskArgs, reply *AssignMap
 
 // Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
 // MapWorkerJob for each of them. Returns the list of jobs.
-func (self *MapReduceNode) getMapJobs(inputFolder string) []MapWorkerJob {
+func (self *MapReduceNode) getMapJobs(inputAccessor InputAccessor) []MapWorkerJob {
 	jobs := []MapWorkerJob{}
 
-	keys := FilterKeysByPrefix(self.bucket, inputFolder + "/")  // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
+	keys := inputAccessor.listKeys()
 	for _, key := range keys {
 		jobs = append(jobs, MapWorkerJob{key, "", false})   // Construct a new job object and append to the list of them
 	}
@@ -221,7 +222,7 @@ func getUnassignedJob(jobs []MapWorkerJob) int {
 
 
 func (self *MapReduceNode) tick() {
-	fmt.Println("Tick")
+	// fmt.Println("Tick")
 }
 
 

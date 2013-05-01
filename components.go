@@ -8,6 +8,7 @@ type Job struct{
 	finished bool       // Whether the instance is finished
 	master int          // The node acting as master for the instance
 	status string       // "starting", "working", "done"
+	inputAccessor InputAccessor
 }
 
 func (self *Job) get_id() string {
