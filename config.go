@@ -9,6 +9,8 @@ type JobConfig struct {
 	// TODO Should contain map and reduce functions, chunk sizes etc.
 	M int                 // Number of MapTasks
 	R int                 // Number of ReduceTasks
+	prechunked bool       // Whether the file has already been broken into M chunks
+	inputFile string      // File name of the entire input (not chunked)
 }
 
 

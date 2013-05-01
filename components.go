@@ -11,7 +11,10 @@ type Job struct{
 	mapper Mapper       // mapper to be used for this Job
 	reducer Reducer     // reducer to be used for this Job
 	inputAccessor InputAccessor
+	outputAccessor OutputAccessor
 }
+
+
 
 func (self *Job) get_id() string {
 	return self.job_id
@@ -34,10 +37,19 @@ type MapTask struct {
 	Mapper Mapper       // Implementation of Mapper interface.
 }
 
+func makeMapTask(id string, key string, mapper Mapper) MapTask {
+	return MapTask{Id: id, Key: key, Mapper: mapper}
+}
+
+
 type ReduceTask struct {
-	Id int              // String unqiue id for unlimited possibilities.
+	Id string              // String unqiue id for unlimited possibilities.
 	Key string          // Intermediate key.
 	Reducer Reducer     // Implementation of Reducer interface.
+}
+
+func makeReduceTask(id string, key string, reducer Reducer) ReduceTask {
+	return ReduceTask{Id: id, Key: key, Reducer: reducer}
 }
 
 

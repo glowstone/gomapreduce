@@ -32,6 +32,7 @@ type MapReduceNode struct {
 
 	// State for master role
 	jobs map[string] Job   // Maps string job_id -> Job
+  tm TaskManager        // all Tasks the MapReduceNode while acting as a master
 
 	// State for worker roles
   intermediates map[MediateTuple][]Pair
@@ -68,6 +69,8 @@ func (self *MapReduceNode) Start(mapper Mapper, reducer Reducer, job_config JobC
              finished: false, 
              master: self.me,  // storing index into nodes prevents long server names being shown upon printing job 
              status: "starting",
+             mapper: mapper,
+             reducer: reducer,
              inputAccessor: makeS3Accessor("small_test"),
             }
   self.jobs[job.get_id()] = job
@@ -88,15 +91,14 @@ complete.
 The method used by the master node to start the entire mapreduce operation
 */
 func (self *MapReduceNode) master_role(job Job, config JobConfig) {
-	
-	debug(fmt.Sprintf("(svr:%d) master_role:", self.me))
+	debug(fmt.Sprintf("(svr:%d) master_role: job", self.me))
 
 	// Split input data into M components. Note this is done already as part of S3 code.
 
-	// Get the list of tasks that will need to be performed by workers
-	mapJobs := self.getMapJobs(job.inputAccessor)
-	fmt.Printf("Tasks: %v\n", mapJobs)
-	//fmt.Println(mapJobs)
+	// Construct the M MapTasks that must be performed for the Job.
+  map_tasks := makeMapTasks(job, config)
+
+	fmt.Printf("Tasks: %v\n", map_tasks)
 
 	// Assign the map jobs to workers
 	//self.assignMapJobs(mapJobs)
@@ -141,24 +143,22 @@ func (self *MapReduceNode) StartMapJob(args *AssignTaskArgs, reply *AssignTaskRe
 	return nil
 }
 
-
+//TaskState{key, "", false}
 // Helpers
 ///////////////////////////////////////////////////////////////////////////////
-// Currently some are methods of the MapReduceNode, but I think they can be
-// made as regular functions after bucket is no longer attached to the 
-// MapReduceNode
 
-// Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
-// MapWorkerJob for each of them. Returns the list of jobs.
-func (self *MapReduceNode) getMapJobs(inputAccessor InputAccessor) []TaskState {
-	jobs := []TaskState{}
+// Gets all the keys that need to be mapped via MapTasks for the job and 
+// constructs MapTask instances. Returns the list of MapTasks
+func makeMapTasks(job Job, config JobConfig) []MapTask {
+  var task_list []MapTask
 
-	keys := inputAccessor.listKeys()
-	for _, key := range keys {
-		jobs = append(jobs, TaskState{key, "", false})   // Construct a new job object and append to the list of them
+  // Assumes the Job input is prechunked
+	for _, key := range job.inputAccessor.listKeys() {
+    task_id := generate_uuid()
+    maptask := makeMapTask(task_id, key, job.mapper)
+    task_list = append(task_list, maptask)   // Construct a new job object and append to the list of them
 	}
-
-	return jobs
+	return task_list
 }
 
 // Method used by the master. Assigns jobs to workers until all jobs are complete.
@@ -313,6 +313,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
   // Initialization code
   mr.node_count = len(nodes)
   mr.jobs = make(map[string]Job)
+  mr.tm = makeTaskManager()
 
   if rpcs != nil {
     rpcs.Register(mr)      // caller created RPC Server
