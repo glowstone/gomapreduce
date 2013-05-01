@@ -8,6 +8,8 @@ type Job struct{
 	finished bool       // Whether the instance is finished
 	master int          // The node acting as master for the instance
 	status string       // "starting", "working", "done"
+	mapper Mapper       // mapper to be used for this Job
+	reducer Reducer     // reducer to be used for this Job
 }
 
 func (self *Job) get_id() string {
@@ -35,4 +37,18 @@ type ReduceTask struct {
 	Id int              // String unqiue id for unlimited possibilities.
 	Key string          // Intermediate key.
 	Reducer Reducer     // Implementation of Reducer interface.
+}
+
+
+
+// Tuple for looking up intermediate results
+type MediateTuple struct {
+	Job_num string
+	Key string
+}
+
+
+type Pair struct {
+	Key interface{}
+	Value interface{}
 }

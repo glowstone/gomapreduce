@@ -21,11 +21,13 @@ The mapreduce package includes the following interfaces which are implemented by
 
 + Mapper
 + Reducer
-+ InputAccessor?
-+ OutputAccessor?
++ InputAccessor
++ OutputAccessor
 + DataSplitter?     // default is at any line break
 
 Typically, clients only need implement the Mapper and Reducer interfaces as reasonable builtin implementations for the InputData, OutputData, and DataChunker interfaces are available.
+
+An intermediateAccessor interface and a default implementation is also part of the library; the default implementation just uses the MapReduceNode's local volatile RAM memory.
 
 Clients must also initialize an instance of the JobConfig as well to set per-Job configuration settings.
 

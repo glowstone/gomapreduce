@@ -52,9 +52,15 @@ func TestBasic(t *testing.T) {
 		fmt.Println(pxa)
 		fmt.Println(pxh)
 
-		mapper := &DemoMapper{}
-		reducer := &DemoReducer{}
-		pxa[0].Start(mapper, reducer)
+		mapper := DemoMapper{}
+		reducer := DemoReducer{}
+		config := JobConfig{InputFolder: "small_test", 
+							 OutputFolder: "",
+							 M: 2,
+							 R: 2,
+							}
+		job_id := pxa[0].Start(mapper, reducer, config)
+		debug(fmt.Sprintf("job_id: %s", job_id))
 
 		time.Sleep(2000 * time.Millisecond)
 

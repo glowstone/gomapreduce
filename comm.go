@@ -13,16 +13,6 @@ type Err string
 type Args interface {}
 type Reply interface {}
 
-// for tgarv
-type AssignMapTaskArgs struct {
-	Job MapWorkerJob
-}
-
-type AssignMapTaskReply struct {
-	OK bool
-}
-// end
-
 
 type AssignTaskArgs struct {
 	Name string       // Task type (either 'map' or 'reduce')
