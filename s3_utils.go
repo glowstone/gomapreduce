@@ -58,43 +58,42 @@ func FilterKeysByPrefix(bucket s3.Bucket, prefix string) []string {
 // Read data from the file at filepath, break its contents into chunks of size chunkSize, and write them to 
 // the specified directory in the given bucket
 func SplitFileIntoChunks(filepath string, bucket s3.Bucket, directory string, chunkSize int) bool{
-    file, err := os.Open(filepath)
+	file, err := os.Open(filepath)
 
-    if err != nil {
-        return false
-    }
+	if err != nil {
+		return false
+	}
 
-    defer file.Close()
+	defer file.Close()
 
-    reader := bufio.NewReader(file)				// The file buffer to read from
-    buffer := bytes.NewBuffer(make([]byte, 0))	// The temporary buffer to write each chunk to
-    done := false
-    chunkNumber := 0
+	reader := bufio.NewReader(file)				// The file buffer to read from
+	buffer := bytes.NewBuffer(make([]byte, 0))	// The temporary buffer to write each chunk to
+	done := false
+	chunkNumber := 0
 
-    for !done {
-    	fmt.Printf("Chunk #%d\n", chunkNumber)
-    	chunkNumber++
+	for !done {
+		fmt.Printf("Chunk #%d\n", chunkNumber)
+		chunkNumber++
 
-    	for buffer.Len() < chunkSize {	// While the buffer is smaller than our chunk size
-	        part, _, err := reader.ReadLine() 	// Read the next line of the file
+		for buffer.Len() < chunkSize {	// While the buffer is smaller than our chunk size
+			part, _, err := reader.ReadLine() 	// Read the next line of the file
 
-	        if err != nil {	// There's nothing left to read from the file
-	            done = true
-	            break
-	        }
+			if err != nil {	// There's nothing left to read from the file
+				done = true
+				break
+			}
 
-	        buffer.Write(part)
-	    }
+			buffer.Write(part)
+		}
 
-	    fmt.Printf("Buffer length: %d\n", buffer.Len())
-	    key := fmt.Sprintf("%s/%d", directory, chunkNumber) 	// Create the key for this chunk ("directory/chunkNumber")
-	    bucket.StoreObject(key, buffer.Bytes())			// Write the buffer data to that key
-    	buffer.Reset()
-    }
+		fmt.Printf("Buffer length: %d\n", buffer.Len())
+		key := fmt.Sprintf("%s/%d", directory, chunkNumber) 	// Create the key for this chunk ("directory/chunkNumber")
+		bucket.StoreObject(key, buffer.Bytes())			// Write the buffer data to that key
+		buffer.Reset()
+	}
 
 	return true
 }
-
 // func main() {
 // 	bucket := GetBucket()
 // 	fmt.Printf("Bucket: %s\n", bucket)

@@ -10,6 +10,7 @@ type Job struct{
 	status string       // "starting", "working", "done"
 	mapper Mapper       // mapper to be used for this Job
 	reducer Reducer     // reducer to be used for this Job
+	inputAccessor InputAccessor
 }
 
 func (self *Job) get_id() string {

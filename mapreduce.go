@@ -16,7 +16,6 @@ import (
 	//"math"
 	"time"
 	"encoding/gob"
-	"github.com/jacobsa/aws/s3"
 )
 
 type MapReduceNode struct {
@@ -30,7 +29,6 @@ type MapReduceNode struct {
 	nodes []string        // MapReduceNode port names
 	node_count int
 	net_mode string       // "unix" or "tcp"
-	bucket s3.Bucket      // temporary
 
 	// State for master role
 	jobs map[string] Job   // Maps string job_id -> Job
@@ -70,6 +68,7 @@ func (self *MapReduceNode) Start(mapper Mapper, reducer Reducer, job_config JobC
              finished: false, 
              master: self.me,  // storing index into nodes prevents long server names being shown upon printing job 
              status: "starting",
+             inputAccessor: makeS3Accessor("small_test"),
             }
   self.jobs[job.get_id()] = job
   fmt.Println(job)
@@ -95,7 +94,8 @@ func (self *MapReduceNode) master_role(job Job, config JobConfig) {
 	// Split input data into M components. Note this is done already as part of S3 code.
 
 	// Get the list of tasks that will need to be performed by workers
-	//mapJobs := self.getMapJobs(params.InputFolder)
+	mapJobs := self.getMapJobs(job.inputAccessor)
+	fmt.Printf("Tasks: %v\n", mapJobs)
 	//fmt.Println(mapJobs)
 
 	// Assign the map jobs to workers
@@ -150,10 +150,10 @@ func (self *MapReduceNode) StartMapJob(args *AssignTaskArgs, reply *AssignTaskRe
 
 // Gets all the keys that need to be processed by map workers for this instance of mapreduce, and constructs a 
 // MapWorkerJob for each of them. Returns the list of jobs.
-func (self *MapReduceNode) getMapJobs(inputFolder string) []TaskState {
+func (self *MapReduceNode) getMapJobs(inputAccessor InputAccessor) []TaskState {
 	jobs := []TaskState{}
 
-	keys := FilterKeysByPrefix(self.bucket, inputFolder + "/")  // Prefix needs to end with the slash so we don't get e.g. both test/ and test1/
+	keys := inputAccessor.listKeys()
 	for _, key := range keys {
 		jobs = append(jobs, TaskState{key, "", false})   // Construct a new job object and append to the list of them
 	}
@@ -213,15 +213,8 @@ func getUnassignedJob(jobs []TaskState) int {
 }
 
 
-
-
-
-
-
-
-
 func (self *MapReduceNode) tick() {
-	fmt.Println("Tick")
+	// fmt.Println("Tick")
 }
 
 
