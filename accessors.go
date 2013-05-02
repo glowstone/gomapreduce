@@ -47,6 +47,10 @@ type OutputAccessor interface {
 	//TODO
 }
 
+type S3Outputer struct {
+	
+}
+
 type IntermediateAccessor interface{
 	//TODO
 }
