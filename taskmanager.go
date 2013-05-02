@@ -4,7 +4,7 @@ package gomapreduce
 
 import (
 	"math/rand"
-	"fmt"
+	"sync"
 )
 
 // Representation of Tasks maintained at the master node
@@ -23,6 +23,7 @@ func makeTaskState(task Task, workerIndex int, status string) *TaskState {
 
 
 type TaskManager struct {
+	mu sync.Mutex     // Singleton mutex for manager
 	nworkers int                              // Number of worker nodes
 	storage map[string]map[string]*TaskState  // Maps job_id -> task_id -> *TaskState
 }
@@ -34,6 +35,24 @@ func makeTaskManager(nworkers int) TaskManager{
 	return tm
 }
 
+/*
+Returns a copy of the TaskState object corresponding to the given jobId and
+taskId. Mutating the copy does not affect TaskState stored in the TaskManager
+*/
+func (self *TaskManager) getTaskStateCopy(jobId string, taskId string) TaskState {
+	if _, present := self.storage[jobId]; present {
+		if _, present := self.storage[jobId][taskId]; present {
+			return *self.storage[jobId][taskId]
+		}
+		return TaskState{}
+	}
+	return TaskState{}
+}
+
+/*
+Returns the TaskState object corresponding to the given jobId and taskId.
+Callers that mutate the TaskState are responsible for obtaining a lock.
+*/
 func (self *TaskManager) getTaskState(jobId string, taskId string) *TaskState {
 	if _, present := self.storage[jobId]; present {
 		if _, present := self.storage[jobId][taskId]; present {
@@ -44,26 +63,28 @@ func (self *TaskManager) getTaskState(jobId string, taskId string) *TaskState {
 	return &TaskState{}
 }
 
-func (self *TaskManager) setTaskStatus(jobId string, taskId string, status string) {
-	taskState := self.getTaskState(jobId, taskId)
 
+
+/*
+Accepts a jobId and taskId and sets the corresponding TaskState status to the
+given status. Valid statuses are 'unassigned', 'assigned', and 'completed'
+*/
+func (self *TaskManager) setTaskStatus(jobId string, taskId string, status string) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	taskState := self.getTaskState(jobId, taskId)
 	switch status {
 		case "unassigned":
-			debug(fmt.Sprint("Marked unassigned"))
 			taskState.status = "unassigned"
 		case "assigned":
-			debug(fmt.Sprintln("Mark assigned"))
-			taskState = self.getTaskState(jobId, taskId)
 			taskState.status = "assigned"
 		case "complete":
-			debug(fmt.Sprintln("Mark complete"))
-			taskState = self.getTaskState(jobId, taskId)
 			taskState.status = "completed"
 		default:
 			panic("tried to set invalid TaskState status")
 	}
 }
-
 
 
 /*
@@ -86,7 +107,6 @@ func (self *TaskManager) addBulkMapTasks(jobId string, tasks []MapTask) {
 	for _, task := range tasks {
 		self.addTask(jobId, task)
 	}
-	fmt.Println(self.storage)
 	return
 }
 
@@ -101,14 +121,26 @@ func (self *TaskManager) addBulkReduceTasks(jobId string, tasks []ReduceTask) {
 }
 
 /*
-Returns a list of the unfinshed Task Ids for a particular Job by iterating over 
-the TaskStates for the Job and cheking whether it is finished.
+Returns a list of the Task Ids for a particular Job, which have are known to 
+have the given status (in TaskState) and be of the given kind (in Task itself).
+The given status may be 'unassigned', 'assigned', 'completed', or 'all' and 
+the given type may be 'map', 'reduce', or 'all'.
 */
-func (self *TaskManager) listUnassignedTasks(jobId string) []string {
+func (self *TaskManager) listTasks(jobId string, status string, kind string) []string {
 	var taskIds []string
 	for _, taskState := range self.storage[jobId] {
-		if taskState.status == "unassigned" {
-			taskIds = append(taskIds, taskState.task.getId())
+		if taskState.status == "all" {
+			if kind == "all" {
+				taskIds = append(taskIds, taskState.task.getId())
+			} else {
+				if taskState.task.getKind() == kind {
+					taskIds = append(taskIds, taskState.task.getId())
+				}
+			}	
+		} else {
+			if taskState.status == status {
+				taskIds = append(taskIds, taskState.task.getId())
+			}
 		}
 	}
 	return taskIds
@@ -119,9 +151,13 @@ func (self *TaskManager) listUnassignedTasks(jobId string) []string {
 Iterates though the Tasks for a particular Job and returns the number of Tasks
 not completed.
 */
-func (self *TaskManager) getNumberUnassigned(jobId string) int {
-	return len(self.listUnassignedTasks(jobId))
+func (self *TaskManager) countTasks(jobId string, status string, kind string) int {
+	return len(self.listTasks(jobId, status, kind))
 }
+
+
+// TODO
+// Calls for determining percentage complete and other stats
 
 
 

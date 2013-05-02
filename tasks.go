@@ -6,7 +6,9 @@ Task interface, MapTask and ReduceTask structs
 
 type Task interface {
 	getId() string
+	getKind() string
 	getMaster() int
+	//execute()
 }
 
 
@@ -33,6 +35,11 @@ func (self MapTask) getMaster() int {
 	return self.Master
 }
 
+// Get the kind of Task
+func (self MapTask) getKind() string {
+	return "map"
+}
+
 
 
 // Implements the Task interface
@@ -56,5 +63,10 @@ func (self ReduceTask) getId() string {
 // Get the master node index
 func (self ReduceTask) getMaster() int {
 	return self.Master
+}
+
+// Get the kind of Task
+func (self ReduceTask) getKind() string {
+	return "reduce"
 }
 

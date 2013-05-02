@@ -38,7 +38,9 @@ Clients must also initialize an instance of the JobConfig as well to set per-Job
 + Status(job_id) (is_done bool, stats Stats)
 
 
-Notes/Limitations/Uncertainties
+### Notes/Limitations/Uncertainties
+
+Node requesting a Job be performed is part of the network of nodes like in Paxos. 
 
 Workers process one task at a time rather than maintaining a queue of tasks to be performed. The master is responsible for continuing to try to push out the tasks.
 

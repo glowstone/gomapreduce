@@ -57,7 +57,7 @@ member of the network but it is totally possible.
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
   reducer Reducer, inputer InputAccessor, outputer OutputAccessor) string {
 
-  self.broadcast_testrpc(mapper)          // temporary
+  //self.broadcast_testrpc(mapper)          // temporary
 
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
   job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, outputer)
@@ -80,128 +80,31 @@ The method used by the master node to start the entire mapreduce operation
 */
 func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 	debug(fmt.Sprintf("(svr:%d) master_role: job", self.me))
-
-	// Split input data into M components. Right now, input is prechunked so do nothing.
-
-  maptasks := makeMapTasks(job, config)           // Create M MapTasks
-  self.tm.addBulkMapTasks(job.getId(), maptasks)  // Add tasks to TaskManager
-
-	fmt.Printf("Tasks: %v\n", maptasks)
-
-  // Perform map tasks
-  // Assign the MapTasks to workers
-  self.assignMapTasks(job)
-
-
-  // Perform reduce tasks
-
-
-  // Cleanup
-
-}
-
-
-// Exported RPC functions (internal to mapreduce service)
-///////////////////////////////////////////////////////////////////////////////
-
-// Accepts a request to perform a MapTask or an AcceptTask. May decline the
-// request if overworked
-func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskReply) error {
-	debug(fmt.Sprintf("Received a task: %v", args))
-
-
-
-
-
-	//fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
-	//mapData, _ := self.bucket.GetObject(args.Job.Key)
-	//fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
-	// TODO Run the map function on the data
-	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
-
-	reply.OK = true
-
-	return nil
-
-}
-
-//func (self *MapReduceNode) Get(...)
-
-
-// A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
-// then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
-// master where those values are stored so that reduce workers can get them when needed.
-func (self *MapReduceNode) StartMapJob(args *AssignTaskArgs, reply *AssignTaskReply) error{
-	//fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
-	//mapData, _ := self.bucket.GetObject(args.Job.Key)
-	//fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
-	// TODO Run the map function on the data
-	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
-
-	reply.OK = true
-
-	return nil
-}
-
-// Helpers
-///////////////////////////////////////////////////////////////////////////////
-
-// Gets all the keys that need to be mapped via MapTasks for the job and 
-// constructs MapTask instances. Returns a slice of MapTasks.
-func makeMapTasks(job Job, config JobConfig) []MapTask {
-  var task_list []MapTask
-
-  // Assumes the Job input is prechunked
-	for _, key := range job.inputAccessor.listKeys() {
-    task_id := generate_uuid()
-    maptask := makeMapTask(task_id, key, job.mapper)
-    task_list = append(task_list, maptask)
-	}
-	return task_list
-}
-
-/*
-Synchronous function used by the master thread to assign MapTasks to workers. 
-Returns when all MapTasks are complete
-*/
-func (self *MapReduceNode) assignMapTasks(job Job) {
-  var worker string             // MapReducerNode port
-  var task Task
   jobId := job.getId()
- 
-  num_unfinished := self.tm.getNumberUnassigned(jobId)
-  for num_unfinished > 0 {
-    debug(fmt.Sprintf("Number unfinished: %d\n", num_unfinished))    
-    taskIds := self.tm.listUnassignedTasks(jobId)
-    fmt.Println(taskIds)
+  // MapTasks
+  // Split input data into M components. Right now, input is prechunked so do nothing.
+  maptasks := makeMapTasks(job, config)         // Create M MapTasks
+  self.tm.addBulkMapTasks(jobId, maptasks)      // Add tasks to TaskManager
+  self.assignTasks(jobId)                       // Assign unassigned MapTasks to workers
+  self.awaitTasks(jobId, "assigned", "map")     // Wait for MapTasks to be completed
 
-    // Assign unassigned Tasks
-    for _, taskId := range taskIds {
-      taskState := self.tm.getTaskState(jobId, taskId)
-      task = taskState.task
-      args := AssignTaskArgs{Task: task}
-      var reply AssignTaskReply
-      worker = self.nodes[taskState.workerIndex]
+  // temporary debugging
+  fmt.Println(self.tm.listTasks(jobId, "unassigned", "all"))
+  fmt.Println(self.tm.listTasks(jobId, "assigned", "all"))
+  fmt.Println(self.tm.listTasks(jobId, "completed", "all"))
 
-      ok := self.call(worker, "MapReduceNode.ReceiveTask", args, &reply)
-      if ok {
-        // Worker accepted the Task assignment
-        if reply.OK {
-          self.tm.setTaskStatus(jobId, task.getId(), "assigned")
-        }
-      }
-    }
-    num_unfinished = self.tm.getNumberUnassigned(jobId)
-    debug(fmt.Sprintf("Number unfinished: %d\n", num_unfinished))    
-    // TODO should sleep for some amount of time before looping again?
-  }
+  // ReduceTasks (+ failed MapTasks )
+  // reducetasks := makeReduceTasks(job, config)
+  // self.tm.addBulkReduceTasks(job.getId(), config)
+  // self.assignTasks(job)
+  // self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
+
+  // // Cleanup
+  // self.tm.jobDone(job.getId())
 }
-
-// moved getNumberUnfinished into Task manager
-
 
 func (self *MapReduceNode) tick() {
-	// fmt.Println("Tick")
+  //fmt.Println("Tick")
 }
 
 
@@ -240,6 +143,106 @@ func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error
 }
 
 
+// Exported RPC functions (internal to mapreduce service)
+///////////////////////////////////////////////////////////////////////////////
+
+// Accepts a request to perform a MapTask or an AcceptTask. May decline the
+// request if overworked
+// A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
+// then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
+// master where those values are stored so that reduce workers can get them when needed.
+func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskReply) error {
+	self.mu.Lock()
+  defer self.mu.Unlock()
+
+  debug(fmt.Sprintf("(svr:%d) ReceiveTask: %v", self.me, args))
+
+  // simulate delay of running a task
+
+	//fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
+	//mapData, _ := self.bucket.GetObject(args.Job.Key)
+	//fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
+	// TODO Run the map function on the data
+	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
+
+	reply.OK = true
+	return nil
+}
+
+/*
+
+*/
+func (self *MapReduceNode) Get() {
+    debug(fmt.Sprintf("(svr:%d) Get", self.me))
+
+}
+
+
+// Helpers
+///////////////////////////////////////////////////////////////////////////////
+
+// Gets all the keys that need to be mapped via MapTasks for the job and 
+// constructs MapTask instances. Returns a slice of MapTasks.
+func makeMapTasks(job Job, config JobConfig) []MapTask {
+  var task_list []MapTask
+
+  // Assumes the Job input is prechunked
+	for _, key := range job.inputAccessor.listKeys() {
+    task_id := generate_uuid()
+    maptask := makeMapTask(task_id, key, job.mapper)
+    task_list = append(task_list, maptask)
+	}
+	return task_list
+}
+
+/*
+Synchronous function used by the master thread to assign Tasks to workers. 
+Returns when all Tasks for the given jobId in the TaskManager have been assigned.
+*/
+func (self *MapReduceNode) assignTasks(jobId string) {
+  var worker string             // MapReducerNode port
+  var task Task
+ 
+  num_unassigned := self.tm.countTasks(jobId, "unassigned", "all")
+  for num_unassigned > 0 {
+    debug(fmt.Sprintf("(svr:%d) Unassigned: %v", self.me, num_unassigned))
+    taskIds := self.tm.listTasks(jobId, "unassigned", "all")
+
+    // Assign unassigned Tasks
+    for _, taskId := range taskIds {
+      taskState := self.tm.getTaskStateCopy(jobId, taskId)
+      task = taskState.task
+      args := AssignTaskArgs{Task: task}
+      var reply AssignTaskReply
+      worker = self.nodes[taskState.workerIndex]
+
+      ok := self.call(worker, "MapReduceNode.ReceiveTask", args, &reply)
+      if ok && reply.OK {
+        // Worker accepted the Task assignment
+        self.tm.setTaskStatus(jobId, task.getId(), "assigned")
+      }
+    }
+
+    num_unassigned = self.tm.countTasks(jobId, "unassigned", "all")
+    time.Sleep(100 * time.Millisecond) 
+  }
+}
+
+// moved getNumberUnfinished into Task manager
+
+/*
+Synchronous function checks that all Tasks of the given JobId and of the given
+type have been marked as 'complete' and returns only when they have all been 
+marked 'complete'
+*/
+func (self *MapReduceNode) awaitTasks(jobId string, status string, kind string) {
+
+}
+
+
+
+
+
 //
 // call() sends an RPC to the rpcname handler on server srv
 // with arguments args, waits for the reply, and leaves the
@@ -257,7 +260,6 @@ func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error
 // please don't change this function.
 //
 func (self *MapReduceNode) call(srv string, rpcname string, args interface{}, reply interface{}) bool {
-	fmt.Println("Sending to", srv)
 	c, errx := rpc.Dial("unix", srv)
 	if errx != nil {
 		fmt.Printf("Error: %s\n", errx)
