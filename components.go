@@ -9,8 +9,8 @@ type Job struct{
 	master int          // Index of node acting as the Job master
 	mapper Mapper       // mapper to be used for this Job
 	reducer Reducer     // reducer to be used for this Job
-	inputAccessor InputAccessor
-	outputAccessor OutputAccessor
+	inputer InputAccessor
+	outputer OutputAccessor
 }
 
 func makeJob(job_id string, status string, master int, mapper Mapper, 
@@ -20,8 +20,8 @@ func makeJob(job_id string, status string, master int, mapper Mapper,
              master: master,
              mapper: mapper,
              reducer: reducer,
-             inputAccessor: inputer,
-             outputAccessor: outputer,
+             inputer: inputer,
+             outputer: outputer,
             }
 }
 

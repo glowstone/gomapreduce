@@ -10,7 +10,7 @@ import "fmt"         // temporary
 import "strings"
 
 type Mapper interface {
-	Map(interface{}) interface{}
+	Map(key string, value interface{}) interface{}
 }
 
 
@@ -21,9 +21,9 @@ type DemoMapper struct {
 }
 
 // Perform the demo map operation as part of the demo MapReduce job.
-func (self DemoMapper) Map(data interface{}) interface{} {
-	text := data.(string)                 // type assertion
-	intermediate := make(map[string]int)  // intermediate data
+func (self DemoMapper) Map(key string, value interface{}) interface{} {
+	text := value.(string)                 // type assertion
+	intermediate := make(map[string]int)   // intermediate data
 
 	words := strings.Split(text, " ")
 	fmt.Println(words)

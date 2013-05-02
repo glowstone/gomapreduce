@@ -83,7 +83,7 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   jobId := job.getId()
   // MapTasks
   // Split input data into M components. Right now, input is prechunked so do nothing.
-  maptasks := makeMapTasks(job, config)         // Create M MapTasks
+  maptasks := self.makeMapTasks(job, config)    // Create M MapTasks
   self.tm.addBulkMapTasks(jobId, maptasks)      // Add tasks to TaskManager
   self.assignTasks(jobId)                       // Assign unassigned MapTasks to workers
   self.awaitTasks(jobId, "assigned", "map")     // Wait for MapTasks to be completed
@@ -108,39 +108,39 @@ func (self *MapReduceNode) tick() {
 }
 
 
-func (self *MapReduceNode) broadcast_testrpc(maptask Mapper) {
-  fmt.Println(self.nodes, maptask)
-  for index, node := range self.nodes {
-    if index == self.me {
-      continue
-    }
-    args := &TestRPCArgs{}         // declare and init zero valued struct
-    args.Number = rand.Int()
-    //task := ExampleMapper{}
-    args.Mapper = maptask
-    var reply TestRPCReply
-    ok := self.call(node, "MapReduceNode.TestRPC", args, &reply)
-    if ok {
-      fmt.Println("Successfully sent")
-      fmt.Println(reply)
-    } else {
-      fmt.Println("Sent but not received")
-      fmt.Println(reply)
-    }
-  }
-  return
-}
+// func (self *MapReduceNode) broadcast_testrpc(maptask Mapper) {
+//   fmt.Println(self.nodes, maptask)
+//   for index, node := range self.nodes {
+//     if index == self.me {
+//       continue
+//     }
+//     args := &TestRPCArgs{}         // declare and init zero valued struct
+//     args.Number = rand.Int()
+//     //task := ExampleMapper{}
+//     args.Mapper = maptask
+//     var reply TestRPCReply
+//     ok := self.call(node, "MapReduceNode.TestRPC", args, &reply)
+//     if ok {
+//       fmt.Println("Successfully sent")
+//       fmt.Println(reply)
+//     } else {
+//       fmt.Println("Sent but not received")
+//       fmt.Println(reply)
+//     }
+//   }
+//   return
+// }
 
 
 // Handle test RPC RPC calls.
-func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
-  fmt.Println("Received TestRPC", args.Number)
-  result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
-  fmt.Println(result)
-  //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
-  reply.Err = OK
-  return nil
-}
+// func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
+//   fmt.Println("Received TestRPC", args.Number)
+//   result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
+//   fmt.Println(result)
+//   //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
+//   reply.Err = OK
+//   return nil
+// }
 
 
 // Exported RPC functions (internal to mapreduce service)
@@ -156,13 +156,8 @@ func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskRe
   defer self.mu.Unlock()
 
   debug(fmt.Sprintf("(svr:%d) ReceiveTask: %v", self.me, args))
-
-  // simulate delay of running a task
-
-	//fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
-	//mapData, _ := self.bucket.GetObject(args.Job.Key)
-	//fmt.Printf("Worker %d got map data: %s\n", self.me, string(mapData[:int(math.Min(30, float64(len(mapData))))]))
-	// TODO Run the map function on the data
+  // TODO: run as a worker thread
+  args.Task.execute()
 	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
 
 	reply.OK = true
@@ -183,13 +178,13 @@ func (self *MapReduceNode) Get() {
 
 // Gets all the keys that need to be mapped via MapTasks for the job and 
 // constructs MapTask instances. Returns a slice of MapTasks.
-func makeMapTasks(job Job, config JobConfig) []MapTask {
+func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   var task_list []MapTask
 
   // Assumes the Job input is prechunked
-	for _, key := range job.inputAccessor.listKeys() {
+	for _, key := range job.inputer.ListKeys() {
     task_id := generate_uuid()
-    maptask := makeMapTask(task_id, key, job.mapper)
+    maptask := makeMapTask(task_id, self.me, key, job.mapper, job.inputer)
     task_list = append(task_list, maptask)
 	}
 	return task_list
@@ -313,6 +308,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
     gob.Register(TestRPCReply{})
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
+    gob.Register(S3Accessor{})
 
     // Prepare node to receive connections
 

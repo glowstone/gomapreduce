@@ -5,24 +5,27 @@ Task interface, MapTask and ReduceTask structs
 */
 
 type Task interface {
-	getId() string
 	getKind() string
+	getId() string
 	getMaster() int
-	//execute()
+	execute()
 }
 
 
 // Implements the Task interface
 type MapTask struct {
-	Id string           // Task unique id (string for greater possibilities).
-	Master int          // Index of master node assigning the Task.
-	Key interface{}         // Key to call the Mapper with.
-	Mapper Mapper       // Implementation of Mapper interface.
+	Id string              // Task unique id (string for greater possibilities).
+	Master int             // Index of master node assigning the Task.
+	Key string             // Key to call the Mapper with.
+	Mapper Mapper          // Implementation of Mapper interface.
+	Inputer InputAccessor  // Allows worker to read its chunk of the input
 }
 
 // MapTask Constructor
-func makeMapTask(id string, key string, mapper Mapper) MapTask {
-	return MapTask{Id: id, Key: key, Mapper: mapper}
+func makeMapTask(id string, master int, key string, mapper Mapper, 
+	inputer InputAccessor) MapTask {
+
+	return MapTask{Id: id, Master: master, Key: key, Mapper: mapper, Inputer: inputer}
 }
 
 // Get MapTask Id
@@ -38,6 +41,13 @@ func (self MapTask) getMaster() int {
 // Get the kind of Task
 func (self MapTask) getKind() string {
 	return "map"
+}
+
+// Execute the MapTask
+func (self MapTask) execute() {
+	key := self.Key
+	value := self.Inputer.GetValue(key)
+	self.Mapper.Map(key, value)
 }
 
 
@@ -68,5 +78,10 @@ func (self ReduceTask) getMaster() int {
 // Get the kind of Task
 func (self ReduceTask) getKind() string {
 	return "reduce"
+}
+
+// Execute the ReduceTask
+func (self ReduceTask) execute() {
+	//TODO
 }
 
