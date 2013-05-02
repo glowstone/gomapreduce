@@ -66,7 +66,7 @@ func TestBasic(t *testing.T) {
 		job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
 		debug(fmt.Sprintf("job_id: %s", job_id))
 
-		time.Sleep(2000 * time.Millisecond)
+		time.Sleep(10000 * time.Millisecond)
 
 		
 	fmt.Printf("Passed...\n")

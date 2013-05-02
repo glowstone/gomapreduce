@@ -37,3 +37,9 @@ Clients must also initialize an instance of the JobConfig as well to set per-Job
 + Start(mapper, reducer, job_config) (job_id int)
 + Status(job_id) (is_done bool, stats Stats)
 
+
+Notes/Limitations/Uncertainties
+
+Workers process one task at a time rather than maintaining a queue of tasks to be performed. The master is responsible for continuing to try to push out the tasks.
+
+

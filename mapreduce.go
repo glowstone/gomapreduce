@@ -107,7 +107,11 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 // Accepts a request to perform a MapTask or an AcceptTask. May decline the
 // request if overworked
 func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskReply) error {
-	debug(fmt.Sprintf("Received a task"))
+	debug(fmt.Sprintf("Received a task: %v", args))
+
+
+
+
 
 	//fmt.Printf("Worker %d starting Map(%s)\n", self.me, args.Job.Key)
 	//mapData, _ := self.bucket.GetObject(args.Job.Key)
@@ -161,64 +165,39 @@ Synchronous function used by the master thread to assign MapTasks to workers.
 Returns when all MapTasks are complete
 */
 func (self *MapReduceNode) assignMapTasks(job Job) {
-  // workers := append(self.nodes[:self.me], self.nodes[self.me:]...)  // The workers available for map tasks (everyone but me)
-	// fmt.Printf("Map Workers: %s\n", workers)
-  // Why do we exclude the master from doing any work? 
+  var worker string             // MapReducerNode port
+  var task Task
+  jobId := job.getId()
+ 
+  num_unfinished := self.tm.getNumberUnassigned(jobId)
+  for num_unfinished > 0 {
+    debug(fmt.Sprintf("Number unfinished: %d\n", num_unfinished))    
+    taskIds := self.tm.listUnassignedTasks(jobId)
+    fmt.Println(taskIds)
 
-  // for self.tm.getNumberUnfinished(job.getId()) > 0 {
-  //   fmt.Printf("Number unfinished: %d\n", self.tm.getNumberUnfinished(job.getId()))
-  //   tasks := self.tm.listUnfinishedTasks(job.getId())
-  //   var workerPort string
+    // Assign unassigned Tasks
+    for _, taskId := range taskIds {
+      taskState := self.tm.getTaskState(jobId, taskId)
+      task = taskState.task
+      args := AssignTaskArgs{Task: task}
+      var reply AssignTaskReply
+      worker = self.nodes[taskState.workerIndex]
 
-  //   for _, task := range tasks {
-  //     workerPort = self.nodes[task.worker]
-  //     fmt.Println(workerPort)
-  //     args := AssignTaskArgs{job}
-  //     var reply AssignTaskReply
-  //     self.call(workerPort, "MapReduce.ReceiveTask", args, &reply)
-  //   }
-
-
-  //  jobIndex := getUnassignedJob(jobs)  // Get the index of one of the unassigned jobs
-
-  //  if jobIndex != -1 {     // A value of -1 means that all jobs are assigned
-  //    job = jobs[jobIndex]
-  //    worker := workers[rand.Intn(len(workers))]    // Get a random worker. TODO should only use an idle node
-  //    jobs[jobIndex].Worker = worker  // Assign the worker for the job
-  //    //args := AssignTaskArgs{job}
-  //    //reply := &AssignTaskReply{}
-
-  //    //self.call(worker, "MapReduce.StartMapJob", args, reply)   // TODO this should be asynchronous RPC, check for err etc.
-  //    jobs[jobIndex].Completed = true     // TODO job should only be set to complete when the worker actually finishes it
-  //  }
-
-  //  numUnfinished = getNumberUnfinished(jobs)
+      ok := self.call(worker, "MapReduceNode.ReceiveTask", args, &reply)
+      if ok {
+        // Worker accepted the Task assignment
+        if reply.OK {
+          self.tm.setTaskStatus(jobId, task.getId(), "assigned")
+        }
+      }
+    }
+    num_unfinished = self.tm.getNumberUnassigned(jobId)
+    debug(fmt.Sprintf("Number unfinished: %d\n", num_unfinished))    
     // TODO should sleep for some amount of time before looping again?
-  // }
-// }
-
-
-
-	// numUnfinished := getNumberUnfinished(jobs)    // The number of jobs that are not complete
-	// //var job TaskState
-
-	// for numUnfinished > 0 {   // While there are jobs left to complete
-	
+  }
 }
 
 // moved getNumberUnfinished into Task manager
-
-
-// Gets a random unassigned job from the list of jobs and returns it
-// func getUnassignedJob(jobs []TaskState) int {
-// 	for i, job := range jobs {
-// 		if job.Worker == "" {
-// 			return i
-// 		}
-// 	}
-
-// 	return -1  // TODO check this
-// }
 
 
 func (self *MapReduceNode) tick() {
@@ -330,6 +309,8 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
     rpcs.Register(mr)      // Register exported methods of MapReduceNode with RPC Server         
     gob.Register(TestRPCArgs{})
     gob.Register(TestRPCReply{})
+    gob.Register(MapTask{})
+    gob.Register(ReduceTask{})
 
     // Prepare node to receive connections
 

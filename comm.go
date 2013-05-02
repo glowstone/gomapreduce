@@ -14,10 +14,11 @@ type Args interface {}
 type Reply interface {}
 
 
+// Master nodes assigns Tasks
+///////////////////////////////////////////////////////////////////////////////
+
 type AssignTaskArgs struct {
-	Name string       // Task type (either 'map' or 'reduce')
 	Task Task         // MapTask or ReduceTask
-	Assigner int      // index of node assigning the task, maybe call Master?
 }
 
 type AssignTaskReply struct {

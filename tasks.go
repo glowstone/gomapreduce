@@ -6,13 +6,15 @@ Task interface, MapTask and ReduceTask structs
 
 type Task interface {
 	getId() string
+	getMaster() int
 }
 
 
 // Implements the Task interface
 type MapTask struct {
-	Id string           // String unique id for unlimited possibilities.
-	Key string          // Input key.
+	Id string           // Task unique id (string for greater possibilities).
+	Master int          // Index of master node assigning the Task.
+	Key interface{}         // Key to call the Mapper with.
 	Mapper Mapper       // Implementation of Mapper interface.
 }
 
@@ -26,12 +28,18 @@ func (self MapTask) getId() string {
 	return self.Id
 }
 
+// Get the master node index
+func (self MapTask) getMaster() int {
+	return self.Master
+}
+
 
 
 // Implements the Task interface
 type ReduceTask struct {
-	Id string              // String unqiue id for unlimited possibilities.
-	Key string          // Intermediate key.
+	Id string           // Task unqiue id (string for unlimited possibilities).
+	Master int          // Index of master node assigning the Task.
+	Key interface{}     // Key to call the Reducer with.
 	Reducer Reducer     // Implementation of Reducer interface.
 }
 
@@ -44,3 +52,9 @@ func makeReduceTask(id string, key string, reducer Reducer) ReduceTask {
 func (self ReduceTask) getId() string {
 	return self.Id
 }
+
+// Get the master node index
+func (self ReduceTask) getMaster() int {
+	return self.Master
+}
+
