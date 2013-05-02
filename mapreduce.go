@@ -109,6 +109,9 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 
 func (self *MapReduceNode) tick() {
   //fmt.Println("Tick")
+  self.sendPings()
+	self.checkForDisconnectedNodes()
+
 }
 
 
@@ -236,13 +239,7 @@ marked 'complete'
 */
 func (self *MapReduceNode) awaitTasks(jobId string, status string, kind string) {
 
-func (self *MapReduceNode) tick() {
-	// fmt.Println("Tick")
-	self.sendPings()
-	self.checkForDisconnectedNodes()
 }
-
-
 
 // Helper method for a node to send a ping to all of its peers
 func (self *MapReduceNode) sendPings() {
@@ -257,7 +254,7 @@ func (self *MapReduceNode) sendPings() {
 
 // Ping handler, called via RPC when a node wants to ping this node
 func (self *MapReduceNode) HandlePing(args *PingArgs, reply *PingReply) error {
-	fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
+	// fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
 
 	self.lastPingTimes[args.Me] = time.Now()
 
@@ -274,6 +271,17 @@ func (self *MapReduceNode) checkForDisconnectedNodes() {
 		}
 	}
 }
+
+
+// Handle test RPC RPC calls.
+// func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
+//   fmt.Println("Received TestRPC", args.Number)
+//   result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
+//   fmt.Println(result)
+//   //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
+//   reply.Err = OK
+//   return nil
+// }
 
 
 
