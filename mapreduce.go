@@ -36,6 +36,10 @@ type MapReduceNode struct {
 
 	// State for worker roles
   intermediates map[MediateTuple][]Pair
+  // Last ping times for each other node
+  lastPingTimes map[string]time.Time
+  // State ("idle", "dead", etc.) of each other node
+  nodeStates map[string]string
 }
 
 
@@ -232,9 +236,44 @@ marked 'complete'
 */
 func (self *MapReduceNode) awaitTasks(jobId string, status string, kind string) {
 
+func (self *MapReduceNode) tick() {
+	// fmt.Println("Tick")
+	self.sendPings()
+	self.checkForDisconnectedNodes()
 }
 
 
+
+// Helper method for a node to send a ping to all of its peers
+func (self *MapReduceNode) sendPings() {
+	args := &PingArgs{self.nodes[self.me]}
+	for _, node := range self.nodes {
+		if node != self.nodes[self.me]{
+			reply := &PingReply{}
+			self.call(node, "MapReduceNode.HandlePing", args, reply)
+		}
+	}
+}
+
+// Ping handler, called via RPC when a node wants to ping this node
+func (self *MapReduceNode) HandlePing(args *PingArgs, reply *PingReply) error {
+	fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
+
+	self.lastPingTimes[args.Me] = time.Now()
+
+	return nil
+}
+
+// checks to see when each of the other nodes last pinged. If it was too long ago, mark them as dead
+func (self *MapReduceNode) checkForDisconnectedNodes() {
+	for node, lastPingTime := range self.lastPingTimes {
+		timeDifference := time.Now().Sub(lastPingTime)
+		if timeDifference > DeadPings * PingInterval {
+			fmt.Printf("Node %d marking node %s as dead\n", self.me, node)
+			self.nodeStates[node] = "dead"
+		}
+	}
+}
 
 
 
@@ -298,6 +337,17 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
   mr.node_count = len(nodes)
   mr.jobs = make(map[string]Job)
   mr.tm = makeTaskManager(len(nodes))
+
+  // Initialize last ping times for each node
+  mr.nodeStates = map[string]string{}
+  mr.lastPingTimes = map[string]time.Time{}
+  for _, node := range mr.nodes {
+  	if node == mr.nodes[mr.me] { 	// Skip ourself
+  		continue
+  	}
+  	mr.lastPingTimes[node] = time.Now()
+  	mr.nodeStates[node] = "idle"
+  }
 
   if rpcs != nil {
     rpcs.Register(mr)      // caller created RPC Server
