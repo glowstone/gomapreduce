@@ -26,7 +26,7 @@ func (self DemoMapper) Map(key string, value interface{}) interface{} {
 	intermediate := make(map[string]int)   // intermediate data
 
 	words := strings.Split(text, " ")
-	fmt.Println(words)
+	// fmt.Println(words)
 	for _, word := range words {
 		if _, present := intermediate[word]; present {
 			intermediate[word] += 1
@@ -35,5 +35,6 @@ func (self DemoMapper) Map(key string, value interface{}) interface{} {
 		}
 	}
 	fmt.Println("DemoMapper doing map")   // temporary
+	fmt.Println("Mapper got: %s\n", intermediate)
 	return intermediate                   // map[string]int, intermediate key -> value
 }

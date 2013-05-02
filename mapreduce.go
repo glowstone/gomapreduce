@@ -89,9 +89,9 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   self.awaitTasks(jobId, "assigned", "map")     // Wait for MapTasks to be completed
 
   // temporary debugging
-  fmt.Println(self.tm.listTasks(jobId, "unassigned", "all"))
-  fmt.Println(self.tm.listTasks(jobId, "assigned", "all"))
-  fmt.Println(self.tm.listTasks(jobId, "completed", "all"))
+  fmt.Printf("Unassigned: %s\n", self.tm.listTasks(jobId, "unassigned", "all"))
+  fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
+  fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
 
   // ReduceTasks (+ failed MapTasks )
   // reducetasks := makeReduceTasks(job, config)
