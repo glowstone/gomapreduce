@@ -52,4 +52,19 @@ type S3Outputer struct {
 
 type IntermediateAccessor interface{
 	//TODO
+	Emit(key string, value interface{})
+	ReadIntermediateValues(key string) []interface{} 	// There might be multiple values associated with an intermediate key, even on this one node
+}
+
+type SimpleIntermediateAccessor struct {
+
+}
+
+func (self SimpleIntermediateAccessor) Emit(key string, value interface{}) {
+	fmt.Printf("Emit(%s, %d)\n", key, value)
+}
+
+func (self SimpleIntermediateAccessor) ReadIntermediateValues(key string) []interface{} {
+	fmt.Println("Writing intermediate pair")
+	return nil
 }

@@ -19,13 +19,15 @@ type MapTask struct {
 	Key string             // Key to call the Mapper with.
 	Mapper Mapper          // Implementation of Mapper interface.
 	Inputer InputAccessor  // Allows worker to read its chunk of the input
+	IntermediateAccessor IntermediateAccessor
 }
 
 // MapTask Constructor
 func makeMapTask(id string, master int, key string, mapper Mapper, 
-	inputer InputAccessor) MapTask {
+	inputer InputAccessor, intermediateAccessor IntermediateAccessor) MapTask {
 
-	return MapTask{Id: id, Master: master, Key: key, Mapper: mapper, Inputer: inputer}
+	return MapTask{Id: id, Master: master, Key: key, Mapper: mapper, Inputer: inputer,
+				   IntermediateAccessor: intermediateAccessor}
 }
 
 // Get MapTask Id
@@ -47,7 +49,7 @@ func (self MapTask) getKind() string {
 func (self MapTask) execute() {
 	key := self.Key
 	value := self.Inputer.GetValue(key)
-	self.Mapper.Map(key, value)
+	self.Mapper.Map(key, value, self.IntermediateAccessor)
 }
 
 

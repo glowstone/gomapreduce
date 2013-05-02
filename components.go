@@ -10,17 +10,19 @@ type Job struct{
 	mapper Mapper       // mapper to be used for this Job
 	reducer Reducer     // reducer to be used for this Job
 	inputer InputAccessor
+	intermediateAccessor IntermediateAccessor
 	outputer OutputAccessor
 }
 
 func makeJob(job_id string, status string, master int, mapper Mapper, 
-	reducer Reducer, inputer InputAccessor, outputer OutputAccessor) Job {
+	reducer Reducer, inputer InputAccessor, intermediateAccessor IntermediateAccessor, outputer OutputAccessor) Job {
 	return Job{job_id: job_id,    
              status: status,
              master: master,
              mapper: mapper,
              reducer: reducer,
              inputer: inputer,
+             intermediateAccessor: intermediateAccessor,
              outputer: outputer,
             }
 }

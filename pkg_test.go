@@ -62,8 +62,9 @@ func TestBasic(t *testing.T) {
 							 inputFile: "",   // NA in this job
 							}
 		inputer := makeS3Accessor("small_test")
+		intermediateAccessor := SimpleIntermediateAccessor{}
 		outputer := S3Outputer{}
-		job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
+		job_id := pxa[0].Start(config, mapper, reducer, inputer, intermediateAccessor, outputer)
 		debug(fmt.Sprintf("job_id: %s", job_id))
 
 		time.Sleep(5000 * time.Millisecond)

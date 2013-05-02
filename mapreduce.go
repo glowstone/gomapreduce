@@ -59,12 +59,12 @@ created. We don't currently have any scenarios where the client is not also a
 member of the network but it is totally possible.
 */
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
-  reducer Reducer, inputer InputAccessor, outputer OutputAccessor) string {
+  reducer Reducer, inputer InputAccessor, intermediateAccessor IntermediateAccessor, outputer OutputAccessor) string {
 
   //self.broadcast_testrpc(mapper)          // temporary
 
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
-  job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, outputer)
+  job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, intermediateAccessor, outputer)
   self.jobs[job.getId()] = job
 
   debug(fmt.Sprintf("(svr:%d) Start: job_id: %s, job: %v", self.me, job_id, job))
@@ -191,7 +191,7 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     task_id := generate_uuid()
-    maptask := makeMapTask(task_id, self.me, key, job.mapper, job.inputer)
+    maptask := makeMapTask(task_id, self.me, key, job.mapper, job.inputer, job.intermediateAccessor)
     task_list = append(task_list, maptask)
 	}
 	return task_list
@@ -367,6 +367,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
     gob.Register(S3Accessor{})
+    gob.Register(SimpleIntermediateAccessor{})
 
     // Prepare node to receive connections
 
