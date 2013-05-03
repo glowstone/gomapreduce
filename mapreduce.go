@@ -107,10 +107,18 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   // self.tm.jobDone(job.getId())
 }
 
+/*
+Executes the MapTask or ReduceTask
+*/
+func (self *MapReduceNode) workerRole(task Task) {
+  task.execute()
+  return
+}
+
 func (self *MapReduceNode) tick() {
   //fmt.Println("Tick")
-  self.sendPings()
-	self.checkForDisconnectedNodes()
+  //self.sendPings()
+	//self.checkForDisconnectedNodes()
 
 }
 
@@ -153,19 +161,31 @@ func (self *MapReduceNode) tick() {
 // Exported RPC functions (internal to mapreduce service)
 ///////////////////////////////////////////////////////////////////////////////
 
-// Accepts a request to perform a MapTask or an AcceptTask. May decline the
-// request if overworked
-// A method used by a map worker. The worker will fetch the data associated with the key for the job it's assigned, and
-// then run the map function on that data. The worker stores the intermediate key/value pairs in memory and tells the
-// master where those values are stored so that reduce workers can get them when needed.
-func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskReply) error {
-	self.mu.Lock()
-  defer self.mu.Unlock()
+/*
+Accepts notification of of Task Completion by a worker and uses the Task Manager to
+change the status of the TaskState for the completed Task.
+Does NOT check that worker was actually assigned the task or do other forms of 
+validation. MapReduceNodes assumed to be trustworthy.
+*/
+func (self *MapReduceNode) TaskCompleted(args *TaskCompleteArgs, reply *TaskCompleteReply) error {
+  // TODO: Handle duplicate reqests - TaskManager may change task state from complete to
+  // assigned and a stray late packet should not switch it back.
+  debug(fmt.Sprintf("(svr:%d) Received TaskCompleted: %s", self.me, args.TaskId))
+  //self.tm.setTaskStatus(jobId, args.TaskID, "assigned")
+  reply.OK = true            // acknowledge receipt of the notification
+  return nil
+}
 
+/*
+Accepts a request to perform a MapTask or ReduceTask. Immediately returns an 
+acknowledgement that the Task has been accepted and spawns a workRole thread to 
+execute the Task.
+*/
+func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskReply) error {
   debug(fmt.Sprintf("(svr:%d) ReceiveTask: %v", self.me, args))
-  // TODO: run as a worker thread
-  args.Task.execute()
-	// TODO Write the intermediate keys/values to somewhere (in memory for now) so it can be fetched by reducers later
+
+  // Spawn a worker to execute the Task
+  go self.workerRole(args.Task)
 
 	reply.OK = true
 	return nil
@@ -191,7 +211,7 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     task_id := generate_uuid()
-    maptask := makeMapTask(task_id, key, job.mapper, job.inputer, job.intermediateAccessor, self.nodes[self.me], self.netMode)
+    maptask := makeMapTask(task_id, key, job.getId(), job.mapper, job.inputer, job.intermediateAccessor, self.nodes[self.me], self.netMode)
     task_list = append(task_list, maptask)
 	}
 	return task_list
@@ -218,7 +238,7 @@ func (self *MapReduceNode) assignTasks(jobId string) {
       var reply AssignTaskReply
       worker = self.nodes[taskState.workerIndex]
 
-      ok := self.call(worker, "MapReduceNode.ReceiveTask", args, &reply)
+      ok := call(worker, self.netMode, "MapReduceNode.ReceiveTask", args, &reply)
       if ok && reply.OK {
         // Worker accepted the Task assignment
         self.tm.setTaskStatus(jobId, task.getId(), "assigned")
@@ -229,8 +249,6 @@ func (self *MapReduceNode) assignTasks(jobId string) {
     time.Sleep(100 * time.Millisecond) 
   }
 }
-
-// moved getNumberUnfinished into Task manager
 
 /*
 Synchronous function checks that all Tasks of the given JobId and of the given
@@ -247,7 +265,7 @@ func (self *MapReduceNode) sendPings() {
 	for _, node := range self.nodes {
 		if node != self.nodes[self.me]{
 			reply := &PingReply{}
-			self.call(node, "MapReduceNode.HandlePing", args, reply)
+			call(node, self.netMode, "MapReduceNode.HandlePing", args, reply)
 		}
 	}
 }
@@ -282,48 +300,6 @@ func (self *MapReduceNode) checkForDisconnectedNodes() {
 //   reply.Err = OK
 //   return nil
 // }
-
-
-
-//
-// call() sends an RPC to the rpcname handler on server srv
-// with arguments args, waits for the reply, and leaves the
-// reply in reply. the reply argument should be a pointer
-// to a reply structure.
-//
-// the return value is true if the server responded, and false
-// if call() was not able to contact the server. in particular,
-// the reply's contents are only valid if call() returned true.
-//
-// you should assume that call() will time out and return an
-// error after a while if it doesn't get a reply from the server.
-//
-// please use call() to send all RPCs, in client.go and server.go.
-// please don't change this function.
-//
-func (self *MapReduceNode) call(srv string, rpcname string, args interface{}, reply interface{}) bool {
-  var c *rpc.Client
-  var errx error
-  if self.netMode == "unix" {
-    c, errx = rpc.Dial("unix", srv)
-  } else if self.netMode == "tcp" {
-    c, errx = rpc.Dial("tcp", srv)
-  } else {
-    panic("netMode must be either 'unix' or 'tcp'.")
-  }
-	if errx != nil {
-		fmt.Printf("Error: %s\n", errx)
-		return false
-	}
-	defer c.Close()
-		
-	err := c.Call(rpcname, args, reply)
-	if err == nil {
-		return true
-	}
-	fmt.Printf("Error: %s\n", err)
-	return false
-}  
 
 
 //

@@ -4,7 +4,7 @@ package gomapreduce
 
 // State associated with an individual MapReduce job requested by a client.
 type Job struct{
-	job_id string       // String unique id for unlimited possibilities.
+	jobId string       // String unique id for unlimited possibilities.
 	status string       // "starting", "working", "done"
 	master int          // Index of node acting as the Job master
 	mapper Mapper       // mapper to be used for this Job
@@ -14,9 +14,9 @@ type Job struct{
 	outputer OutputAccessor
 }
 
-func makeJob(job_id string, status string, master int, mapper Mapper, 
+func makeJob(jobId string, status string, master int, mapper Mapper, 
 	reducer Reducer, inputer InputAccessor, intermediateAccessor IntermediateAccessor, outputer OutputAccessor) Job {
-	return Job{job_id: job_id,    
+	return Job{jobId: jobId,    
              status: status,
              master: master,
              mapper: mapper,
@@ -28,7 +28,7 @@ func makeJob(job_id string, status string, master int, mapper Mapper,
 }
 
 func (self *Job) getId() string {
-	return self.job_id
+	return self.jobId
 }
 
 func (self *Job) isDone() bool {

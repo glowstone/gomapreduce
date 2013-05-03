@@ -61,7 +61,7 @@ type IntermediateAccessor interface{
 }
 
 type SimpleIntermediateAccessor struct {
-
+	//emittedStore *EmittedStore
 }
 
 func MakeSimpleIntermediateAccessor() SimpleIntermediateAccessor {

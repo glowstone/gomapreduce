@@ -5,12 +5,14 @@ Task interface, MapTask and ReduceTask structs
 */
 
 import (
-	"fmt"      // temporary
+	"fmt"
+	"time"
 )
 
 type Task interface {
 	getKind() string
 	getId() string
+	getJobId() string
 	getMaster() string
 	execute()
 	completed()
@@ -21,6 +23,7 @@ type Task interface {
 type MapTask struct {
 	Id string                     // Task unique id (string for greater possibilities).
 	Key string                    // Key to call the Mapper with.
+	JobId string                  // Identifies the Job this Task corresponds to.
 	Mapper Mapper                 // Implementation of Mapper interface.
 	Inputer InputAccessor         // Allows worker to read its chunk of the input.
 	Emitter IntermediateAccessor  // Allows worker to emit intermediate pairs.
@@ -29,11 +32,17 @@ type MapTask struct {
 }
 
 // MapTask Constructor
-func makeMapTask(id string, key string, mapper Mapper, inputer InputAccessor, 
-	emitter IntermediateAccessor, master string, netMode string) MapTask {
+func makeMapTask(id string, key string, jobId string, mapper Mapper, 
+	inputer InputAccessor, emitter IntermediateAccessor, master string, 
+	netMode string) MapTask {
 
 	return MapTask{Id: id, Key: key, Mapper: mapper, Inputer: inputer,
 				  	Emitter: emitter, Master: master, NetMode: netMode}
+}
+
+// Get the kind of Task
+func (self MapTask) getKind() string {
+	return "map"
 }
 
 // Get MapTask Id
@@ -41,15 +50,17 @@ func (self MapTask) getId() string {
 	return self.Id
 }
 
+// Get Job Id
+func (self MapTask) getJobId() string {
+	return self.JobId
+}
+
 // Get the master node index
 func (self MapTask) getMaster() string {
 	return self.Master
 }
 
-// Get the kind of Task
-func (self MapTask) getKind() string {
-	return "map"
-}
+
 
 // Execute the MapTask
 func (self MapTask) execute() {
@@ -61,7 +72,17 @@ func (self MapTask) execute() {
 
 // Notify master that Job completed
 func (self MapTask) completed() {
-	fmt.Println("Notify master that task is completed", self.Master, self.NetMode)
+	var notified bool
+	for !notified {
+		args := TaskCompleteArgs{JobId: self.getJobId(), TaskId: self.getId()}
+		var reply TaskCompleteReply
+		debug(fmt.Sprintf("Send TaskComplete: %s", self.Id))
+		ok := call(self.Master, self.NetMode, "MapReduceNode.TaskCompleted", args, &reply)
+		if ok && reply.OK {
+			notified = true
+		}
+		time.Sleep(100 * time.Millisecond) 
+	}
 }
 
 
@@ -71,6 +92,7 @@ func (self MapTask) completed() {
 type ReduceTask struct {
 	Id string                    // Task unqiue id (string for unlimited possibilities).
 	Key interface{}              // Key to call the Reducer with.
+	JobId string             
 	Reducer Reducer              // Implementation of Reducer interface.
 	// Intermediate
 	// Outputer OutputerAccessor
@@ -79,9 +101,14 @@ type ReduceTask struct {
 }
 
 // ReduceTask Constructor
-func makeReduceTask(id string, key string, reducer Reducer, master string, 
-	netMode string) ReduceTask {
+func makeReduceTask(id string, key string, jobId string, reducer Reducer, 
+	master string, netMode string) ReduceTask {
 	return ReduceTask{Id: id, Key: key, Reducer: reducer, Master: master, NetMode: netMode}
+}
+
+// Get the kind of Task
+func (self ReduceTask) getKind() string {
+	return "reduce"
 }
 
 // Get ReduceTask Id
@@ -89,14 +116,14 @@ func (self ReduceTask) getId() string {
 	return self.Id
 }
 
+// Get Job Id
+func (self ReduceTask) getJobId() string {
+	return self.JobId
+}
+
 // Get the master node index
 func (self ReduceTask) getMaster() string {
 	return self.Master
-}
-
-// Get the kind of Task
-func (self ReduceTask) getKind() string {
-	return "reduce"
 }
 
 // Execute the ReduceTask
@@ -106,6 +133,16 @@ func (self ReduceTask) execute() {
 
 // Notify master that Job completed
 func (self ReduceTask) completed() {
-	// TODO
+	var notified bool
+	for !notified {
+		args := TaskCompleteArgs{JobId: self.getJobId(), TaskId: self.getId()}
+		var reply TaskCompleteReply
+		debug(fmt.Sprintf("Send TaskComplete: %s", self.Id))
+		ok := call(self.Master, self.NetMode, "MapReduceNode.TaskCompleted", args, &reply)
+		if ok && reply.OK {
+			notified = true
+		}
+		time.Sleep(100 * time.Millisecond) 
+	}
 }
 

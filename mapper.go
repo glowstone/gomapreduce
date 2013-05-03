@@ -6,8 +6,9 @@ service to define the 'map' operation used in a Map Reduce job.
 http://research.google.com/archive/mapreduce.html
 */
 
-import "fmt"         // temporary
-import "strings"
+import (
+	"strings"
+)
 
 type Mapper interface {
 	/*
@@ -40,7 +41,6 @@ func (self DemoMapper) Map(key string, value interface{}, emitter IntermediateAc
 			wordCounts[word] = 1
 		}
 	}
-	fmt.Println("DemoMapper doing map")   // temporary
 
 	// Mapper can emit (key, value) Pairs as soon as they are ready
 	for key, value := range wordCounts {

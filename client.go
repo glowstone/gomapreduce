@@ -7,17 +7,9 @@ package gomapreduce
  */
 
 import (
- 	"net/rpc"
-	//"time"
-  "math"
 	"math/rand"
-  "fmt"
 )
 
-
-func Sqrt(x float64) float64 {
-  return math.Sqrt(x)
-}
 
 /**
  * 
@@ -52,38 +44,4 @@ func make_id_generator() (func() int) {
     base_id += 1
     return base_id
   }
-}
-
-
-
-//
-// call() sends an RPC to the rpcname handler on server srv
-// with arguments args, waits for the reply, and leaves the
-// reply in reply. the reply argument should be a pointer
-// to a reply structure.
-//
-// the return value is true if the server responded, and false
-// if call() was not able to contact the server. in particular,
-// the reply's contents are only valid if call() returned true.
-//
-// you should assume that call() will time out and return an
-// error after a while if it doesn't get a reply from the server.
-//
-// please use call() to send all RPCs, in client.go and server.go.
-// please don't change this function.
-//
-func call(srv string, rpcname string, args interface{}, 
-	reply interface{}) bool {
-  fmt.Println("Sending to", srv)
-  c, errx := rpc.Dial("tcp", srv)
-  if errx != nil {
-    return false
-  }
-  defer c.Close()
-    
-  err := c.Call(rpcname, args, reply)
-  if err == nil {
-    return true
-  }
-  return false
 }
