@@ -343,7 +343,7 @@ func (self *MapReduceNode) Kill() {
 // The ports of all the nodes (including this one) are in nodes[], 
 // this node's port is nodes[me]
 
-func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode {
+func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode {
   // Initialize a MapReduceNode
   mr := &MapReduceNode{}
   mr.nodes = nodes    
@@ -374,6 +374,8 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
     // gob.Register(TestRPCReply{})
     gob.Register(DemoMapper{})
     gob.Register(DemoReducer{})
+    gob.Register(PingArgs{})
+    gob.Register(PingReply{})
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
     gob.Register(S3Accessor{})

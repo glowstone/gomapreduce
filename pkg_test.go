@@ -45,7 +45,7 @@ func TestBasic(t *testing.T) {
 		pxh[i] = port("basic", i)
 	}
 	for i := 0; i < nnodes; i++ {
-		pxa[i] = Make(pxh, i, nil, "unix")
+		pxa[i] = MakeMapReduceNode(pxh, i, nil, "unix")
 	}
 	fmt.Println(pxa)
 	fmt.Println(pxh)
