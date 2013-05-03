@@ -29,7 +29,7 @@ func (self S3Accessor) GetValue(key string) string {
 }
 
 // Creates an S3Accessor
-func makeS3Accessor (inputFolder string) S3Accessor {	
+func MakeS3Accessor (inputFolder string) S3Accessor {	
 	if !strings.HasSuffix(inputFolder, "/") { 	// Make sure that the folder has a trailing slash
 		inputFolder += "/"
 	}
@@ -50,8 +50,12 @@ type S3Outputer struct {
 
 }
 
+func MakeS3Outputer() S3Outputer {
+	return S3Outputer{}
+}
+
+
 type IntermediateAccessor interface{
-	//TODO
 	Emit(key string, value interface{})
 	ReadIntermediateValues(key string) []interface{} 	// There might be multiple values associated with an intermediate key, even on this one node
 }
@@ -59,6 +63,11 @@ type IntermediateAccessor interface{
 type SimpleIntermediateAccessor struct {
 
 }
+
+func MakeSimpleIntermediateAccessor() SimpleIntermediateAccessor {
+	return SimpleIntermediateAccessor{}
+}
+
 
 func (self SimpleIntermediateAccessor) Emit(key string, value interface{}) {
 	fmt.Printf("Emit(%s, %d)\n", key, value)

@@ -28,7 +28,7 @@ type MapReduceNode struct {
 	me int                // index into nodes
 	nodes []string        // MapReduceNode port names
 	node_count int
-	net_mode string       // "unix" or "tcp"
+	netMode string       // "unix" or "tcp"
 
 	// State for master role
 	jobs map[string] Job   // Maps string job_id -> Job
@@ -191,7 +191,7 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     task_id := generate_uuid()
-    maptask := makeMapTask(task_id, self.me, key, job.mapper, job.inputer, job.intermediateAccessor)
+    maptask := makeMapTask(task_id, key, job.mapper, job.inputer, job.intermediateAccessor, self.nodes[self.me], self.netMode)
     task_list = append(task_list, maptask)
 	}
 	return task_list
@@ -302,7 +302,15 @@ func (self *MapReduceNode) checkForDisconnectedNodes() {
 // please don't change this function.
 //
 func (self *MapReduceNode) call(srv string, rpcname string, args interface{}, reply interface{}) bool {
-	c, errx := rpc.Dial("unix", srv)
+  var c *rpc.Client
+  var errx error
+  if self.netMode == "unix" {
+    c, errx = rpc.Dial("unix", srv)
+  } else if self.netMode == "tcp" {
+    c, errx = rpc.Dial("tcp", srv)
+  } else {
+    panic("netMode must be either 'unix' or 'tcp'.")
+  }
 	if errx != nil {
 		fmt.Printf("Error: %s\n", errx)
 		return false
@@ -340,7 +348,7 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
   mr := &MapReduceNode{}
   mr.nodes = nodes    
   mr.me = me
-  mr.net_mode = mode
+  mr.netMode = mode
   // Initialization code
   mr.node_count = len(nodes)
   mr.jobs = make(map[string]Job)
@@ -362,8 +370,10 @@ func Make(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode 
   } else {
     rpcs = rpc.NewServer() // creates a new RPC server
     rpcs.Register(mr)      // Register exported methods of MapReduceNode with RPC Server         
-    gob.Register(TestRPCArgs{})
-    gob.Register(TestRPCReply{})
+    // gob.Register(TestRPCArgs{})
+    // gob.Register(TestRPCReply{})
+    gob.Register(DemoMapper{})
+    gob.Register(DemoReducer{})
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
     gob.Register(S3Accessor{})

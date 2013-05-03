@@ -34,8 +34,6 @@ func cleanup(pxa []*MapReduceNode) {
 
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously
-
-
 	gob.Register(DemoMapper{})
 
 	const nnodes = 5
@@ -43,31 +41,25 @@ func TestBasic(t *testing.T) {
 	var pxa []*MapReduceNode = make([]*MapReduceNode, nnodes) // Create empty slice of MapReduce instances
 	defer cleanup(pxa)
 
-		for i := 0; i < nnodes; i++ {
-			pxh[i] = port("basic", i)
-		}
-		for i := 0; i < nnodes; i++ {
-			pxa[i] = Make(pxh, i, nil, "unix")
-		}
-		fmt.Println(pxa)
-		fmt.Println(pxh)
+	for i := 0; i < nnodes; i++ {
+		pxh[i] = port("basic", i)
+	}
+	for i := 0; i < nnodes; i++ {
+		pxa[i] = Make(pxh, i, nil, "unix")
+	}
+	fmt.Println(pxa)
+	fmt.Println(pxh)
 
-		mapper := DemoMapper{}
-		reducer := DemoReducer{}
-		config := JobConfig{InputFolder: "small_test", 
-							 OutputFolder: "",
-							 M: 2,
-							 R: 2,
-							 prechunked: true,
-							 inputFile: "",   // NA in this job
-							}
-		inputer := makeS3Accessor("small_test")
-		intermediateAccessor := SimpleIntermediateAccessor{}
-		outputer := S3Outputer{}
-		job_id := pxa[0].Start(config, mapper, reducer, inputer, intermediateAccessor, outputer)
-		debug(fmt.Sprintf("job_id: %s", job_id))
+	mapper := DemoMapper{}
+	reducer := DemoReducer{}
+	config := MakeJobConfig("small_test", "", 2, 2, true, "")
+	inputer := MakeS3Accessor("small_test")
+	intermediateAccessor := MakeSimpleIntermediateAccessor()
+	outputer := MakeS3Outputer()
+	job_id := pxa[0].Start(config, mapper, reducer, inputer, intermediateAccessor, outputer)
+	debug(fmt.Sprintf("job_id: %s", job_id))
 
-		time.Sleep(5000 * time.Millisecond)
+	time.Sleep(5000 * time.Millisecond)
 
 		
 	fmt.Printf("Passed...\n")

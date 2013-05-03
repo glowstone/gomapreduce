@@ -10,35 +10,40 @@ import "fmt"         // temporary
 import "strings"
 
 type Mapper interface {
-	Map(key string, value interface{}, intermediateAccessor IntermediateAccessor)
+	/*
+	Accepts string key and data value interface{} to be used in the 'map' 
+	operation. An emitter is provided and should be used to emit generated 
+	intermediate pairs.
+	*/
+	Map(key string, value interface{}, emitter IntermediateAccessor)
 }
 
+/*
+Demo Mapper implementation. Used to count the number of occurances of different
+ words.
+*/
+type DemoMapper struct {}
 
-// Demo Mapper implementation. Returns the int number of words in a given
-// string.
-type DemoMapper struct {
-	
-}
-
-// Perform the demo map operation as part of the demo MapReduce job.
-func (self DemoMapper) Map(key string, value interface{}, intermediateAccessor IntermediateAccessor) {
-	text := value.(string)                 // type assertion
-	intermediate := make(map[string]int)   // intermediate data
+/*
+Counts the number of occurances of each word in the given text value and emits
+intermediate pairs <word, word(count)> after processing the text.
+*/
+func (self DemoMapper) Map(key string, value interface{}, emitter IntermediateAccessor) {
+	text := value.(string)                // type assertion
+	wordCounts := make(map[string]int)
 
 	words := strings.Split(text, " ")
-	// fmt.Println(words)
 	for _, word := range words {
-		if _, present := intermediate[word]; present {
-			intermediate[word] += 1
+		if _, present := wordCounts[word]; present {
+			wordCounts[word] += 1
 		} else {
-			intermediate[word] = 1
+			wordCounts[word] = 1
 		}
 	}
 	fmt.Println("DemoMapper doing map")   // temporary
-	fmt.Println("Mapper got: %s\n", intermediate)
 
-	for key, value := range intermediate {
-		intermediateAccessor.Emit(key, value)
+	// Mapper can emit (key, value) Pairs as soon as they are ready
+	for key, value := range wordCounts {
+		emitter.Emit(key, value)
 	}
-	// return intermediate                   // map[string]int, intermediate key -> value
 }
