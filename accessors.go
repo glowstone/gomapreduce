@@ -70,7 +70,7 @@ func MakeSimpleIntermediateAccessor() SimpleIntermediateAccessor {
 
 
 func (self SimpleIntermediateAccessor) Emit(key string, value interface{}) {
-	fmt.Printf("Emit(%s, %d)\n", key, value)
+	//fmt.Printf("Emit(%s, %d)\n", key, value)
 }
 
 func (self SimpleIntermediateAccessor) ReadIntermediateValues(key string) []interface{} {

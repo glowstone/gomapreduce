@@ -16,6 +16,7 @@ import (
 	//"math"
 	"time"
 	"encoding/gob"
+  "runtime"
 )
 
 type MapReduceNode struct {
@@ -90,12 +91,29 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   maptasks := self.makeMapTasks(job, config)    // Create M MapTasks
   self.tm.addBulkMapTasks(jobId, maptasks)      // Add tasks to TaskManager
   self.assignTasks(jobId)                       // Assign unassigned MapTasks to workers
-  self.awaitTasks(jobId, "assigned", "map")     // Wait for MapTasks to be completed
+  self.awaitTasks(jobId, "assigned", "all")     // Wait for MapTasks to be completed
 
   // temporary debugging
   fmt.Printf("Unassigned: %s\n", self.tm.listTasks(jobId, "unassigned", "all"))
   fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
   fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
+
+  self.awaitTasks(jobId, "completed", "all")
+
+  // temporary debugging
+  fmt.Printf("Unassigned: %s\n", self.tm.listTasks(jobId, "unassigned", "all"))
+  fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
+  fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
+
+  done := false
+  for !done {
+    fmt.Printf("Unassigned: %s\n", self.tm.listTasks(jobId, "unassigned", "all"))
+    fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
+    fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
+    time.Sleep(5000 * time.Millisecond) 
+  }
+
+
 
   // ReduceTasks (+ failed MapTasks )
   // reducetasks := makeReduceTasks(job, config)
@@ -122,42 +140,6 @@ func (self *MapReduceNode) tick() {
 
 }
 
-
-// func (self *MapReduceNode) broadcast_testrpc(maptask Mapper) {
-//   fmt.Println(self.nodes, maptask)
-//   for index, node := range self.nodes {
-//     if index == self.me {
-//       continue
-//     }
-//     args := &TestRPCArgs{}         // declare and init zero valued struct
-//     args.Number = rand.Int()
-//     //task := ExampleMapper{}
-//     args.Mapper = maptask
-//     var reply TestRPCReply
-//     ok := self.call(node, "MapReduceNode.TestRPC", args, &reply)
-//     if ok {
-//       fmt.Println("Successfully sent")
-//       fmt.Println(reply)
-//     } else {
-//       fmt.Println("Sent but not received")
-//       fmt.Println(reply)
-//     }
-//   }
-//   return
-// }
-
-
-// Handle test RPC RPC calls.
-// func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
-//   fmt.Println("Received TestRPC", args.Number)
-//   result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
-//   fmt.Println(result)
-//   //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
-//   reply.Err = OK
-//   return nil
-// }
-
-
 // Exported RPC functions (internal to mapreduce service)
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -171,7 +153,7 @@ func (self *MapReduceNode) TaskCompleted(args *TaskCompleteArgs, reply *TaskComp
   // TODO: Handle duplicate reqests - TaskManager may change task state from complete to
   // assigned and a stray late packet should not switch it back.
   debug(fmt.Sprintf("(svr:%d) Received TaskCompleted: %s", self.me, args.TaskId))
-  //self.tm.setTaskStatus(jobId, args.TaskID, "assigned")
+  self.tm.setTaskStatus(args.JobId, args.TaskId, "completed")
   reply.OK = true            // acknowledge receipt of the notification
   return nil
 }
@@ -251,12 +233,31 @@ func (self *MapReduceNode) assignTasks(jobId string) {
 }
 
 /*
-Synchronous function checks that all Tasks of the given JobId and of the given
-type have been marked as 'complete' and returns only when they have all been 
-marked 'complete'
+Synchronous function checks that all Tasks of the given JobId and kind ('map', 'reduce',
+'all') have a status matching the given status string.
+!Note: Reads TaskStates for a Job incrementally, not all atomically. Thus, although
+in one call all 'x' kind Tasks may have reached a 'y' status, this may change in the 
+future and there may not have ever been an instant where all Tasks had 'y' status.
 */
 func (self *MapReduceNode) awaitTasks(jobId string, status string, kind string) {
+  var done bool
 
+  taskIds := self.tm.listTasks(jobId, "all", kind)   // Consider only the specified kind of Tasks
+  fmt.Println(taskIds)
+  for !done {
+    done = true
+
+    for _, taskId := range taskIds {
+      taskState := self.tm.getTaskStateCopy(jobId, taskId)
+      fmt.Println(taskState)
+      if taskState.status != status {
+        done = false           // Continue await if any Task has not reached desired status
+      }
+    }
+    fmt.Println("WAIT!!!!")
+    time.Sleep(100 * time.Millisecond) 
+  }
+  return
 }
 
 // Helper method for a node to send a ping to all of its peers
@@ -320,6 +321,7 @@ func (self *MapReduceNode) Kill() {
 // this node's port is nodes[me]
 
 func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode {
+  runtime.GOMAXPROCS(4)
   // Initialize a MapReduceNode
   mr := &MapReduceNode{}
   mr.nodes = nodes    

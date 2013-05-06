@@ -33,7 +33,7 @@ func (self DemoMapper) Map(key string, value interface{}, emitter IntermediateAc
 	text := value.(string)                // type assertion
 	wordCounts := make(map[string]int)
 
-	words := strings.Split(text, " ")
+	words := strings.Fields(text)
 	for _, word := range words {
 		if _, present := wordCounts[word]; present {
 			wordCounts[word] += 1
