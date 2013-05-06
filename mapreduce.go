@@ -33,10 +33,11 @@ type MapReduceNode struct {
 
 	// State for master role
 	jobs map[string] Job   // Maps string job_id -> Job
-  tm TaskManager        // all Tasks the MapReduceNode while acting as a master
+  tm TaskManager         // all Tasks the MapReduceNode while acting as a master
 
 	// State for worker roles
-  intermediates map[MediateTuple][]Pair
+  emittedStore EmittedStore  // Storage system for emitted intermediate KVPairs
+
   // Last ping times for each other node
   lastPingTimes map[string]time.Time
   // State ("idle", "dead", etc.) of each other node
@@ -61,8 +62,6 @@ member of the network but it is totally possible.
 */
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
   reducer Reducer, inputer InputAccessor, intermediateAccessor IntermediateAccessor, outputer OutputAccessor) string {
-
-  //self.broadcast_testrpc(mapper)          // temporary
 
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
   job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, intermediateAccessor, outputer)
@@ -176,9 +175,19 @@ func (self *MapReduceNode) ReceiveTask(args *AssignTaskArgs, reply *AssignTaskRe
 /*
 
 */
-func (self *MapReduceNode) Get() {
-    debug(fmt.Sprintf("(svr:%d) Get", self.me))
-
+func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) error {
+    debug(fmt.Sprintf("(svr:%d) Get: %v", self.me, args))
+    //TODO - think carefully about locking, duplicate request handling, ensuring all 
+    //intermediates done being generated.
+    slicePairs := self.emittedStore.getEmitted(args.JobId, args.TaskId)
+    fmt.Println("Emitted pairs:", slicePairs)
+    if len(slicePairs) == 0 {
+      reply.Err = ErrNoKey
+    } else {
+      reply.KVPairs = slicePairs
+      reply.Err = OK
+    }
+    return nil
 }
 
 

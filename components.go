@@ -34,19 +34,3 @@ func (self *Job) getId() string {
 func (self *Job) isDone() bool {
 	return self.status == "done"
 }
-
-
-
-
-
-// Tuple for looking up intermediate results
-type MediateTuple struct {
-	Job_num string
-	Key string
-}
-
-
-type Pair struct {
-	Key interface{}
-	Value interface{}
-}

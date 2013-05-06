@@ -23,9 +23,9 @@ func makeTaskState(task Task, workerIndex int, status string) *TaskState {
 
 
 type TaskManager struct {
-	mu sync.Mutex     // Singleton mutex for manager
+	mu sync.Mutex                             // Singleton mutex for manager
 	nworkers int                              // Number of worker nodes
-	storage map[string]map[string]*TaskState  // Maps job_id -> task_id -> *TaskState
+	storage map[string]map[string]*TaskState  // Maps jobId -> taskId -> *TaskState
 }
 
 // TaskManager Constructor

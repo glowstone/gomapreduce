@@ -38,6 +38,19 @@ type TaskCompleteReply struct {
 	OK bool      // Acknowledgement    
 }
 
+/* Reducers retrieve intermediate key/value pairs */
+
+type GetEmittedArgs struct {
+	JobId string
+	TaskId string
+}
+
+type GetEmittedReply struct {
+	KVPairs []KVPair
+	Err Err
+}
+
+
 /* Ping stuff */
 
 // nodes should ping each other this often, so that each node knows which other nodes are alive
