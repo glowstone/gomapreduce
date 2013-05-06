@@ -14,14 +14,14 @@ type KVPair struct {
 
 
 
-type EmittedStore struct {
+type EmittedStorage struct {
 	mu sync.Mutex                           // Singleton mutex for storage system
 	storage map[string]map[string][]KVPair  // Maps jobID -> taskId -> []KVPair (slice)
 }
 
 // EmittedStore Constructor
-func makeEmittedStore() EmittedStore {
-	es := EmittedStore{}
+func makeEmittedStorage() EmittedStorage {
+	es := EmittedStorage{}
 	return es
 }
 
@@ -29,7 +29,7 @@ func makeEmittedStore() EmittedStore {
 Adds an individual emitted intermediate KVPair corresponding to a particular jobId 
 and taskId.
 */
-func (self *EmittedStore) putEmitted(jobId string, taskId string, pair KVPair) {
+func (self *EmittedStorage) putEmitted(jobId string, taskId string, pair KVPair) {
 	//TODO - locking for safe writes
 	if _, present := self.storage[jobId]; !present {
 		self.storage[jobId] = make(map[string][]KVPair)
@@ -45,7 +45,7 @@ func (self *EmittedStore) putEmitted(jobId string, taskId string, pair KVPair) {
 Retrieves all the emitted intermediate KVPairs corresponding to a particular jobId and 
 taskId
 */
-func (self *EmittedStore) getEmitted(jobId string, taskId string) []KVPair {
+func (self *EmittedStorage) getEmitted(jobId string, taskId string) []KVPair {
 	// TODO locking for safe reads
 	if _, present := self.storage[jobId]; present {
 		if _, present := self.storage[jobId][taskId]; present {
