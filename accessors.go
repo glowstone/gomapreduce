@@ -4,6 +4,8 @@ package gomapreduce
 import (
 	"fmt"
 	"strings"
+	"hash/adler32"
+	"strconv"
 )
 
 
@@ -61,19 +63,58 @@ type IntermediateAccessor interface{
 }
 
 type SimpleIntermediateAccessor struct {
-	//emittedStore *EmittedStore
+	EmittedStore *EmittedStore
 }
 
 func MakeSimpleIntermediateAccessor() SimpleIntermediateAccessor {
-	return SimpleIntermediateAccessor{}
+	return SimpleIntermediateAccessor{makeEmittedStore()}
 }
 
 
 func (self SimpleIntermediateAccessor) Emit(key string, value interface{}) {
 	fmt.Printf("Emit(%s, %d)\n", key, value)
+
+	partitionNumber := strconv.Itoa(int(adler32.Checksum([]byte(key)) % uint32(2))) 		// TODO Mod R
+
+	JobId := 0		// TODO pass this in
+
+	pair := IntermediatePair{key, value}
+
+	_, present := self.EmittedStore.Storage[JobId]		// If the internal map doesn't exist yet, make one
+	if !present {
+		m := make(map[string][]IntermediatePair)
+		self.EmittedStore.Storage[JobId] = m
+	}
+
+	values, present := self.EmittedStore.Storage[JobId][partitionNumber]
+	if present { 		// If the slice of values exists, append to it
+		values = append(values, pair)
+		fmt.Printf("Values: %v\n", values)
+	} else { 			// Otherwise create the slice and append the value to it
+		values = make([]IntermediatePair, 0)
+		values = append(values, pair)
+		fmt.Printf("(%s, %v)\n", partitionNumber, values)
+	}
+	self.EmittedStore.Storage[JobId][partitionNumber] = values
 }
 
 func (self SimpleIntermediateAccessor) ReadIntermediateValues(key string) []interface{} {
-	fmt.Println("Writing intermediate pair")
+	fmt.Printf("Reading intermediate values for key %s\n", key)
+	fmt.Printf("Values: %s\n", self.EmittedStore.Storage[0][key]) 	// TODO JobId
 	return nil
+}
+
+// Struct for storing emitted values (intermediate key/value pairs)
+type EmittedStore struct {
+	Storage map[int]map[string][]IntermediatePair 	// Maps jobId -> intermediate key -> Intermediate Pairs
+}
+
+func makeEmittedStore() *EmittedStore {
+	m := make(map[int]map[string][]IntermediatePair)
+	return &EmittedStore{m}
+}
+
+type IntermediatePair struct {
+	Key string
+	Value interface{}
 }

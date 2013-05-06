@@ -33,6 +33,7 @@ type MapReduceNode struct {
 	// State for master role
 	jobs map[string] Job   // Maps string job_id -> Job
   tm TaskManager        // all Tasks the MapReduceNode while acting as a master
+  emitter IntermediateAccessor
 
 	// State for worker roles
   intermediates map[MediateTuple][]Pair
@@ -59,12 +60,12 @@ created. We don't currently have any scenarios where the client is not also a
 member of the network but it is totally possible.
 */
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
-  reducer Reducer, inputer InputAccessor, intermediateAccessor IntermediateAccessor, outputer OutputAccessor) string {
+  reducer Reducer, inputer InputAccessor, outputer OutputAccessor) string {
 
   //self.broadcast_testrpc(mapper)          // temporary
 
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
-  job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, intermediateAccessor, outputer)
+  job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, outputer)
   self.jobs[job.getId()] = job
 
   debug(fmt.Sprintf("(svr:%d) Start: job_id: %s, job: %v", self.me, job_id, job))
@@ -112,6 +113,7 @@ Executes the MapTask or ReduceTask
 */
 func (self *MapReduceNode) workerRole(task Task) {
   task.execute()
+  self.emitter.ReadIntermediateValues("1")
   return
 }
 
@@ -211,7 +213,7 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     task_id := generate_uuid()
-    maptask := makeMapTask(task_id, key, job.getId(), job.mapper, job.inputer, job.intermediateAccessor, self.nodes[self.me], self.netMode)
+    maptask := makeMapTask(task_id, key, job.getId(), job.mapper, job.inputer, self.emitter, self.nodes[self.me], self.netMode)
     task_list = append(task_list, maptask)
 	}
 	return task_list
@@ -329,6 +331,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   mr.node_count = len(nodes)
   mr.jobs = make(map[string]Job)
   mr.tm = makeTaskManager(len(nodes))
+  mr.emitter = MakeSimpleIntermediateAccessor()
 
   // Initialize last ping times for each node
   mr.nodeStates = map[string]string{}
@@ -356,6 +359,8 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     gob.Register(ReduceTask{})
     gob.Register(S3Accessor{})
     gob.Register(SimpleIntermediateAccessor{})
+    gob.Register(EmittedStore{})
+    gob.Register(IntermediatePair{})
 
     // Prepare node to receive connections
 

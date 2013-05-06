@@ -79,7 +79,7 @@ func (self *TaskManager) setTaskStatus(jobId string, taskId string, status strin
 			taskState.status = "unassigned"
 		case "assigned":
 			taskState.status = "assigned"
-		case "complete":
+		case "completed":
 			taskState.status = "completed"
 		default:
 			panic("tried to set invalid TaskState status")
