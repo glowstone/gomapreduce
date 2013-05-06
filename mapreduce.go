@@ -113,7 +113,7 @@ Executes the MapTask or ReduceTask
 */
 func (self *MapReduceNode) workerRole(task Task) {
   task.execute()
-  self.emitter.ReadIntermediateValues("1")
+  self.emitter.ReadIntermediateValues(task.getJobId(), "1")
   return
 }
 

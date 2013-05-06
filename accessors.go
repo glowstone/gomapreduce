@@ -58,8 +58,8 @@ func MakeS3Outputer() S3Outputer {
 
 
 type IntermediateAccessor interface{
-	Emit(key string, value interface{})
-	ReadIntermediateValues(key string) []interface{} 	// There might be multiple values associated with an intermediate key, even on this one node
+	Emit(jobId string, key string, value interface{})
+	ReadIntermediateValues(jobId string, key string) []interface{} 	// There might be multiple values associated with an intermediate key, even on this one node
 }
 
 type SimpleIntermediateAccessor struct {
@@ -71,12 +71,12 @@ func MakeSimpleIntermediateAccessor() SimpleIntermediateAccessor {
 }
 
 
-func (self SimpleIntermediateAccessor) Emit(key string, value interface{}) {
+func (self SimpleIntermediateAccessor) Emit(jobId string, key string, value interface{}) {
 	fmt.Printf("Emit(%s, %d)\n", key, value)
 
 	partitionNumber := strconv.Itoa(int(adler32.Checksum([]byte(key)) % uint32(2))) 		// TODO Mod R
 
-	JobId := 0		// TODO pass this in
+	JobId := "0"		// TODO pass this in
 
 	pair := IntermediatePair{key, value}
 
@@ -98,22 +98,24 @@ func (self SimpleIntermediateAccessor) Emit(key string, value interface{}) {
 	self.EmittedStore.Storage[JobId][partitionNumber] = values
 }
 
-func (self SimpleIntermediateAccessor) ReadIntermediateValues(key string) []interface{} {
+// Given a JobId and a key, reads the values (IntermediatePairs) from this Emitter's storage
+func (self SimpleIntermediateAccessor) ReadIntermediateValues(jobId string, key string) []interface{} {
 	fmt.Printf("Reading intermediate values for key %s\n", key)
-	fmt.Printf("Values: %s\n", self.EmittedStore.Storage[0][key]) 	// TODO JobId
+	fmt.Printf("Values: %s\n", self.EmittedStore.Storage[jobId][key]) 	// TODO error checking?
 	return nil
 }
 
 // Struct for storing emitted values (intermediate key/value pairs)
 type EmittedStore struct {
-	Storage map[int]map[string][]IntermediatePair 	// Maps jobId -> intermediate key -> Intermediate Pairs
+	Storage map[string]map[string][]IntermediatePair 	// Maps jobId -> intermediate key -> Intermediate Pairs
 }
 
 func makeEmittedStore() *EmittedStore {
-	m := make(map[int]map[string][]IntermediatePair)
+	m := make(map[string]map[string][]IntermediatePair)
 	return &EmittedStore{m}
 }
 
+// Stores tuple of intermediate key/intermediate value
 type IntermediatePair struct {
 	Key string
 	Value interface{}

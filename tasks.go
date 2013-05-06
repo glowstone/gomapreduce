@@ -66,7 +66,7 @@ func (self MapTask) getMaster() string {
 func (self MapTask) execute() {
 	key := self.Key                       // Key associated with MapTask
 	value := self.Inputer.GetValue(key)   // Read input value corresponding to key
-	self.Mapper.Map(key, value, self.Emitter)
+	self.Mapper.Map(self.JobId, key, value, self.Emitter)
 	self.completed()
 }
 
