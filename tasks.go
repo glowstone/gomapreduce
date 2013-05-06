@@ -14,7 +14,7 @@ type Task interface {
 	getId() string
 	getJobId() string
 	getMaster() string
-	execute()
+	execute(Emitter)
 	completed()
 }
 
@@ -26,18 +26,16 @@ type MapTask struct {
 	JobId string                  // Identifies the Job this Task corresponds to.
 	Mapper Mapper                 // Implementation of Mapper interface.
 	Inputer InputAccessor         // Allows worker to read its chunk of the input.
-	Emitter IntermediateAccessor  // Allows worker to emit intermediate pairs.
 	Master string                 // Port name of the master node assigning the task.
 	NetMode string                // 'unix' or 'tcp'
 }
 
 // MapTask Constructor
 func makeMapTask(id string, key string, jobId string, mapper Mapper, 
-	inputer InputAccessor, emitter IntermediateAccessor, master string, 
-	netMode string) MapTask {
+	inputer InputAccessor, master string, netMode string) MapTask {
 
 	return MapTask{Id: id, Key: key, Mapper: mapper, Inputer: inputer,
-				  	Emitter: emitter, Master: master, NetMode: netMode}
+						Master: master, NetMode: netMode}
 }
 
 // Get the kind of Task
@@ -60,13 +58,14 @@ func (self MapTask) getMaster() string {
 	return self.Master
 }
 
-
-
-// Execute the MapTask
-func (self MapTask) execute() {
+/*
+Executes the MapTask. Accepts an Emitter which can safely be used by the client Map
+method to Emit key/value pairs.
+*/ 
+func (self MapTask) execute(emitter Emitter) {
 	key := self.Key                       // Key associated with MapTask
 	value := self.Inputer.GetValue(key)   // Read input value corresponding to key
-	self.Mapper.Map(self.JobId, key, value, self.Emitter)
+	self.Mapper.Map(key, value, emitter)
 	self.completed()
 }
 
@@ -127,7 +126,7 @@ func (self ReduceTask) getMaster() string {
 }
 
 // Execute the ReduceTask
-func (self ReduceTask) execute() {
+func (self ReduceTask) execute(emitter Emitter) {
 	//TODO
 }
 

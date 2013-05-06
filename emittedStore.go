@@ -4,6 +4,7 @@ package gomapreduce
 
 import (
 	"sync"
+	"fmt"
 )
 
 // Representation of a Key Value Pair
@@ -22,6 +23,7 @@ type EmittedStorage struct {
 // EmittedStore Constructor
 func makeEmittedStorage() EmittedStorage {
 	es := EmittedStorage{}
+	es.storage = make(map[string]map[string][]KVPair)
 	return es
 }
 
@@ -31,6 +33,7 @@ and taskId.
 */
 func (self *EmittedStorage) putEmitted(jobId string, taskId string, pair KVPair) {
 	//TODO - locking for safe writes
+	debug(fmt.Sprintf("Writing %v to emittedStorage!", pair))
 	if _, present := self.storage[jobId]; !present {
 		self.storage[jobId] = make(map[string][]KVPair)
 	}

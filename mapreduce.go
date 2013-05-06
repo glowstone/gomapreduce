@@ -127,8 +127,10 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 Executes the MapTask or ReduceTask
 */
 func (self *MapReduceNode) workerRole(task Task) {
-  task.execute()
-  self.emitter.ReadIntermediateValues(task.getJobId(), "1")
+  emitter := makeSimpleEmitter(task.getJobId(), task.getId(), &self.emittedStorage)
+  // Pass Emitter which can be used by client Mapper to write to the emittedStorage.
+  task.execute(emitter)     
+  //self.emitter.ReadIntermediateValues(task.getJobId(), "1")
   return
 }
 
@@ -202,7 +204,7 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     task_id := generate_uuid()
-    maptask := makeMapTask(task_id, key, job.getId(), job.mapper, job.inputer, self.emitter, self.nodes[self.me], self.netMode)
+    maptask := makeMapTask(task_id, key, job.getId(), job.mapper, job.inputer, self.nodes[self.me], self.netMode)
     task_list = append(task_list, maptask)
 	}
 	return task_list
@@ -366,9 +368,9 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     gob.Register(PingReply{})
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
-    gob.Register(KVPair{})
     gob.Register(GetEmittedArgs{})
     gob.Register(GetEmittedReply{})
+    gob.Register(KVPair{})
 
     gob.Register(DemoMapper{})
     gob.Register(DemoReducer{})

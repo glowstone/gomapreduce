@@ -16,7 +16,7 @@ type Mapper interface {
 	operation. An emitter is provided and should be used to emit generated 
 	intermediate pairs.
 	*/
-	Map(jobId string, key string, value interface{}, emitter IntermediateAccessor)
+	Map(key string, value interface{}, emitter Emitter)
 }
 
 /*
@@ -29,7 +29,7 @@ type DemoMapper struct {}
 Counts the number of occurances of each word in the given text value and emits
 intermediate pairs <word, word(count)> after processing the text.
 */
-func (self DemoMapper) Map(jobId string, key string, value interface{}, emitter IntermediateAccessor) {
+func (self DemoMapper) Map(key string, value interface{}, emitter Emitter) {
 	text := value.(string)                // type assertion
 	wordCounts := make(map[string]int)
 
@@ -44,6 +44,6 @@ func (self DemoMapper) Map(jobId string, key string, value interface{}, emitter 
 
 	// Mapper can emit (key, value) Pairs as soon as they are ready
 	for key, value := range wordCounts {
-		emitter.Emit(jobId, key, value)
+		emitter.Emit(key, value)
 	}
 }

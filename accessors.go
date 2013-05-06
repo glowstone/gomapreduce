@@ -9,28 +9,6 @@ import (
 )
 
 
-/*
-Wrapper around the emittedStore for use by client writers of Mappers
-Exists because clients should only be able to emit values, NOT deal with 
-jobIds, taskIds, or be able to read other emitted intermediate values
-*/
-type Emitter interface {
-	Emit(key string, value interface{})
-}
-
-// type SimpleEmitter struct {}
-
-// func (self SimpleEmitter) Emit(key string, value interface{}) {
-	
-// 	fmt.Printf("Emit(%s, %d)\n", key, value)
-
-
-
-
-
-
-
-
 type InputAccessor interface {
 	ListKeys() []string 			// A method to list all of the keys (i.e. all of the map jobs)
 	GetValue(key string) string 	// A method to get the value for one of the keys
