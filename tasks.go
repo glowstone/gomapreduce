@@ -34,7 +34,7 @@ type MapTask struct {
 func makeMapTask(id string, key string, jobId string, mapper Mapper, 
 	inputer InputAccessor, master string, netMode string) MapTask {
 
-	return MapTask{Id: id, Key: key, Mapper: mapper, Inputer: inputer,
+	return MapTask{Id: id, Key: key, JobId: jobId, Mapper: mapper, Inputer: inputer,
 						Master: master, NetMode: netMode}
 }
 
