@@ -42,6 +42,7 @@ func (self *EmittedStorage) putEmitted(jobId string, taskId string, pair KVPair)
 	}
 	slicePairs := self.storage[jobId][taskId]
 	slicePairs = append(slicePairs, pair)
+	self.storage[jobId][taskId] = slicePairs
 }
 
 /*
@@ -50,6 +51,7 @@ taskId
 */
 func (self *EmittedStorage) getEmitted(jobId string, taskId string) []KVPair {
 	// TODO locking for safe reads
+	fmt.Printf("Storage: %v\n", self.storage)
 	if _, present := self.storage[jobId]; present {
 		if _, present := self.storage[jobId][taskId]; present {
 			return self.storage[jobId][taskId]
