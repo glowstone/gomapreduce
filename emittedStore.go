@@ -5,6 +5,8 @@ package gomapreduce
 import (
 	"sync"
 	"fmt"
+	"hash/adler32"
+	"strconv"
 )
 
 // Representation of a Key Value Pair
@@ -23,7 +25,7 @@ type EmittedStorage struct {
 // EmittedStore Constructor
 func makeEmittedStorage() EmittedStorage {
 	es := EmittedStorage{}
-	es.storage = make(map[string]map[string][]KVPair)
+	es.storage = make(map[string]map[string][]KVPair)	// Maps jobId -> partitionNumber(hashed intermediate key) -> slice of KVPairs
 	return es
 }
 
@@ -31,30 +33,32 @@ func makeEmittedStorage() EmittedStorage {
 Adds an individual emitted intermediate KVPair corresponding to a particular jobId 
 and taskId.
 */
-func (self *EmittedStorage) putEmitted(jobId string, taskId string, pair KVPair) {
+func (self *EmittedStorage) putEmitted(jobId string, pair KVPair) {
 	//TODO - locking for safe writes
+
+	partitionNumber := strconv.Itoa(int(adler32.Checksum([]byte(pair.Key)) % uint32(2))) 		// TODO Mod R
+
 	debug(fmt.Sprintf("Writing %v to emittedStorage!", pair))
 	if _, present := self.storage[jobId]; !present {
 		self.storage[jobId] = make(map[string][]KVPair)
 	}
-	if _, present := self.storage[jobId][taskId]; !present {
-		self.storage[jobId][taskId] = make([]KVPair,0)
+	if _, present := self.storage[jobId][partitionNumber]; !present {
+		self.storage[jobId][partitionNumber] = make([]KVPair,0)
 	}
-	slicePairs := self.storage[jobId][taskId]
+	slicePairs := self.storage[jobId][partitionNumber]
 	slicePairs = append(slicePairs, pair)
-	self.storage[jobId][taskId] = slicePairs
+	self.storage[jobId][partitionNumber] = slicePairs
 }
 
 /*
 Retrieves all the emitted intermediate KVPairs corresponding to a particular jobId and 
 taskId
 */
-func (self *EmittedStorage) getEmitted(jobId string, taskId string) []KVPair {
+func (self *EmittedStorage) getEmitted(jobId string, partitionNumber string) []KVPair {
 	// TODO locking for safe reads
-	fmt.Printf("Storage: %v\n", self.storage)
 	if _, present := self.storage[jobId]; present {
-		if _, present := self.storage[jobId][taskId]; present {
-			return self.storage[jobId][taskId]
+		if _, present := self.storage[jobId][partitionNumber]; present {
+			return self.storage[jobId][partitionNumber]
 		}
 		return make([]KVPair,0)
 	}

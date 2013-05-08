@@ -42,7 +42,7 @@ type TaskCompleteReply struct {
 
 type GetEmittedArgs struct {
 	JobId string
-	TaskId string
+	PartitionNumber string
 }
 
 type GetEmittedReply struct {

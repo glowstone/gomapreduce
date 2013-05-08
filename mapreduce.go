@@ -127,7 +127,7 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 Executes the MapTask or ReduceTask
 */
 func (self *MapReduceNode) workerRole(task Task) {
-  emitter := makeSimpleEmitter(task.getJobId(), task.getId(), &self.emittedStorage)
+  emitter := makeSimpleEmitter(task.getJobId(), &self.emittedStorage)
   // Pass Emitter which can be used by client Mapper to write to the emittedStorage.
   task.execute(emitter)     
   //self.emitter.ReadIntermediateValues(task.getJobId(), "1")
@@ -181,7 +181,7 @@ func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) err
     debug(fmt.Sprintf("(svr:%d) Get: %v", self.me, args))
     //TODO - think carefully about locking, duplicate request handling, ensuring all 
     //intermediates done being generated.
-    slicePairs := self.emittedStorage.getEmitted(args.JobId, args.TaskId)
+    slicePairs := self.emittedStorage.getEmitted(args.JobId, args.PartitionNumber)
     fmt.Println("Emitted pairs:", slicePairs)
     if len(slicePairs) == 0 {
       reply.Err = ErrNoKey

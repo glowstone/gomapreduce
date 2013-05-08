@@ -22,20 +22,19 @@ type Emitter interface {
 
 type SimpleEmitter struct {
 	jobId string             // Job identifier the Emitter should emit KVPairs to.
-	taskId string            // Task identifier to emit intermediate KVPairs to.
 	emittedStorage *EmittedStorage      // Pointer to an emittedStorage instance
 }
 
 // SimpleEmitter Constructor
-func makeSimpleEmitter(jobId string, taskId string, emittedStorage *EmittedStorage) SimpleEmitter {
-	se := SimpleEmitter{jobId: jobId, taskId: taskId, emittedStorage: emittedStorage}
+func makeSimpleEmitter(jobId string, emittedStorage *EmittedStorage) SimpleEmitter {
+	se := SimpleEmitter{jobId: jobId, emittedStorage: emittedStorage}
 	return se
 }
 
 func (self SimpleEmitter) Emit(key string, value interface{}) {
 	debug(fmt.Sprintf("Emit(%s, %v)", key, value))     //temporary
 	kvpair := KVPair{Key: key, Value: value}
-	self.emittedStorage.putEmitted(self.jobId, self.taskId, kvpair)
+	self.emittedStorage.putEmitted(self.jobId, kvpair)
 }
 	
 
