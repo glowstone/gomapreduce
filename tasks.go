@@ -147,7 +147,7 @@ func (self ReduceTask) execute(emitter Emitter) {
 
 	fmt.Printf("All values: %v\n", values)
 
-	// TODO self.Reducer.reduce(values)
+	self.Reducer.Reduce(values)
 }
 
 // Notify master that Job completed

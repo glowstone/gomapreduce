@@ -32,5 +32,15 @@ func (self DemoReducer) Reduce(data interface{}) interface{} {
 	//map[string]int{is:3, is:4, is:1, is:1}
 
 	fmt.Println("DemoReducer doing reduce")
+
+	wordCounts := make(map[string]int)
+	dataSlice := data.([]KVPair)
+	for _, pair := range dataSlice {
+		// fmt.Printf("Pair: %v\n", pair)
+		key := pair.Key
+		value := pair.Value
+		wordCounts[key] += value.(int)
+	}
+	fmt.Printf("\nOUTPUT!!!: %v\n\n", wordCounts)
 	return nil
 }
