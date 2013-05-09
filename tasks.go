@@ -15,7 +15,6 @@ type Task interface {
 	getJobId() string
 	getJobConfig() JobConfig
 	getMaster() string
-	execute(Emitter)
 	completed()
 }
 
@@ -101,7 +100,6 @@ type ReduceTask struct {
 	JobId string                 // Identifies the Job this Task corresponds to.
 	JobConfig JobConfig          // JobConfig for the Job this Task corresponds to.  
 	Reducer Reducer              // Implementation of Reducer interface.
-	// Intermediate
 	// Outputer OutputerAccessor
 	Master string                 // Port name of the master node assigning the task.
 	NetMode string                // 'unix' or 'tcp'
@@ -142,56 +140,53 @@ func (self ReduceTask) getMaster() string {
 	return self.Master
 }
 
-// Execute the ReduceTask
-// TODO: remove emitter and replace with outputer. Change mapreduce.go code accordingly.
-func (self ReduceTask) execute(emitter Emitter) {
-	fmt.Printf("Executing reduce task\n")
-	allvalues := make([]KVPair, 0)
-	// allvalues is a temporary name
+// Execute the ReduceTask.
+// TODO, add outputer Outputer
+func (self ReduceTask) execute(emittedReader EmittedReader) {
 
-	// Migrate to emittedReader
-	/////////////////////////////////////////
-	for _, node := range self.Nodes { 		// For each node, get the intermediate KVPairs that hash to your partition
-		fmt.Printf("Get(%s, %s) from node %s\n", self.JobId, self.PartitionNumber, node)
-		args := &GetEmittedArgs{JobId: self.JobId, PartitionNumber: self.PartitionNumber}
+	dataPairs := emittedReader.ReadEmitted(self.getJobId(), self.PartitionNumber)
+	// fmt.Printf("Executing reduce task\n")
+	// allvalues := make([]KVPair, 0)
+	// // allvalues is a temporary name
 
-		var reply GetEmittedReply
-		ok := call(node, self.NetMode, "MapReduceNode.Get", args, &reply)
+	// // Migrate to emittedReader
+	// /////////////////////////////////////////
+	// for _, node := range self.Nodes { 		// For each node, get the intermediate KVPairs that hash to your partition
+	// 	fmt.Printf("Get(%s, %s) from node %s\n", self.JobId, self.PartitionNumber, node)
+	// 	args := &GetEmittedArgs{JobId: self.JobId, PartitionNumber: self.PartitionNumber}
+
+	// 	var reply GetEmittedReply
+	// 	ok := call(node, self.NetMode, "MapReduceNode.Get", args, &reply)
 		
-		for !ok { 		// TODO make sure this doesn't loop forever
-			time.Sleep(50 * time.Millisecond)
-		}
+	// 	for !ok { 		// TODO make sure this doesn't loop forever
+	// 		time.Sleep(50 * time.Millisecond)
+	// 	}
 
-		allvalues = append(allvalues, reply.KVPairs...)
-	}
+	// 	allvalues = append(allvalues, reply.KVPairs...)
+	// }
 
-	fmt.Printf("All values: %v\n", allvalues)
-	/////////////////////////////
+	// fmt.Printf("All values: %v\n", allvalues)
+	// /////////////////////////////
 
 	
 	// Sort and Group by Intermediate Keys.
 	uniqueKeys := make(map[string]int)   // Serves as mathematical Set
-	for _, pair := range allvalues {
+	for _, pair := range dataPairs {
 		uniqueKeys[pair.Key] = 1
 	}
-	fmt.Println("unique keys", uniqueKeys)
 	for key, _ := range uniqueKeys {
-		fmt.Println(key)
 		// Collect values from KVPairs with a particular Key
 		values := make([]interface{}, 0)
-		for _, pair := range allvalues {
+		for _, pair := range dataPairs {
 			values = append(values, pair.Value)
 		}
-		fmt.Println(values)
 		// Call Reduce on groups of KVPairs with the same key.
 		self.Reducer.Reduce(key, values)
 	}
-	fmt.Println(uniqueKeys)
-	//self.Reducer.Reduce(values)
-	//self.completed()
+	self.completed()
 }
 
-// 
+// TODO: This should not try forever
 func (self ReduceTask) completed() {
 	var notified bool
 	for !notified {

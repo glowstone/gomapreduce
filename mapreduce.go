@@ -33,10 +33,10 @@ type MapReduceNode struct {
 	// State for master role
 	jobs map[string] Job   // Maps string job_id -> Job
   tm TaskManager         // all Tasks the MapReduceNode while acting as a master
-  emitter IntermediateAccessor
 
 	// State for worker roles
-  emittedStorage EmittedStorage      // Storage system for emitted intermediate KVPairs
+  emittedStorage EmittedStorage    // Storage system for emitted intermediate KVPairs
+  emittedReader EmittedReader      // Interface for reading KVPairs across the Map Reduce cluster.
 
   // Last ping times for each other node
   lastPingTimes map[string]time.Time
@@ -117,7 +117,7 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   reduceTasks := self.makeReduceTasks(job, config)
   self.tm.addBulkReduceTasks(job.getId(), reduceTasks)
   self.assignTasks(jobId)
-  // self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
+  //self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
 
   // // Cleanup
   // self.tm.jobDone(job.getId())
@@ -127,11 +127,17 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 Executes the MapTask or ReduceTask
 */
 func (self *MapReduceNode) workerRole(task Task) {
-  // TODO if task is MapTask do this... else....
-  emitter := makeSimpleEmitter(task.getJobId(), task.getJobConfig(), &self.emittedStorage)
-  // Pass Emitter which can be used by client Mapper to write to the emittedStorage.
-  task.execute(emitter)
-
+  if task.getKind() == "map" {
+    mapTask := task.(MapTask)
+    // Emitter created per MapTask; encapsulates jobId and taskId pairs are emitted to.
+    emitter := makeSimpleEmitter(task.getJobId(), task.getJobConfig(), &self.emittedStorage)
+    mapTask.execute(emitter)
+  } else if task.getKind() == "reduce" {
+    reduceTask := task.(ReduceTask)
+    reduceTask.execute(self.emittedReader)
+  } else {
+    panic("worker tried to execute invalid kind of Task.")
+  }
   return
 }
 
@@ -139,7 +145,6 @@ func (self *MapReduceNode) tick() {
   //fmt.Println("Tick")
   //self.sendPings()
 	//self.checkForDisconnectedNodes()
-
 }
 
 // Exported RPC functions (internal to mapreduce service)
@@ -362,9 +367,19 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   // Initialization code
   mr.node_count = len(nodes)
   mr.jobs = make(map[string]Job)
+
+  // Each node manages Tasks for possibly many concurrent Jobs.
   mr.tm = makeTaskManager(len(nodes))
+
+  // Each node stores emitted intermediate pairs for multiple jobs.
   mr.emittedStorage = makeEmittedStorage()
-  mr.emitter = MakeSimpleIntermediateAccessor()
+
+  /*
+  EmittedReader created per node to serve as an interface for reading 
+  emitted intermediate values known across the cluster
+  */
+  mr.emittedReader = makeSimpleEmittedReader(nodes, mode)
+
 
   // Initialize last ping times for each node
   mr.nodeStates = map[string]string{}
