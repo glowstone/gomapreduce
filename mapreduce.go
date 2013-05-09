@@ -17,6 +17,7 @@ import (
 	"time"
 	"encoding/gob"
   "runtime"
+  "strconv"
 )
 
 type MapReduceNode struct {
@@ -111,12 +112,13 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
     fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
     fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
     time.Sleep(5000 * time.Millisecond) 
+    done = true // TODO make this actually check if they're done
   }
 
   // ReduceTasks (+ failed MapTasks )
-  // reducetasks := makeReduceTasks(job, config)
-  // self.tm.addBulkReduceTasks(job.getId(), config)
-  // self.assignTasks(job)
+  reduceTasks := self.makeReduceTasks(job, config)
+  self.tm.addBulkReduceTasks(job.getId(), reduceTasks)
+  self.assignTasks(jobId)
   // self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
 
   // // Cleanup
@@ -129,8 +131,7 @@ Executes the MapTask or ReduceTask
 func (self *MapReduceNode) workerRole(task Task) {
   emitter := makeSimpleEmitter(task.getJobId(), &self.emittedStorage)
   // Pass Emitter which can be used by client Mapper to write to the emittedStorage.
-  task.execute(emitter)     
-  //self.emitter.ReadIntermediateValues(task.getJobId(), "1")
+  task.execute(emitter)
   return
 }
 
@@ -208,6 +209,23 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
     task_list = append(task_list, maptask)
 	}
 	return task_list
+}
+
+// Gets all the keys that need to be mapped via MapTasks for the job and 
+// constructs MapTask instances. Returns a slice of MapTasks.
+func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTask {
+  fmt.Printf("Making reduce tasks\n")
+  var task_list []ReduceTask
+
+  for i:=0; i<config.r; i++ {
+    key := strconv.Itoa(i)
+    task_id := generate_uuid()
+    reduceTask := makeReduceTask(task_id, key, job.getId(), job.reducer, self.nodes[self.me], self.netMode, self.nodes)
+    fmt.Printf("Made reduce task for partition %s\n", key)
+    task_list = append(task_list, reduceTask)
+  }
+
+  return task_list
 }
 
 /*

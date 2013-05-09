@@ -58,43 +58,42 @@ func TestBasic(t *testing.T) {
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
 	debug(fmt.Sprintf("job_id: %s", job_id))
 
-	time.Sleep(5000 * time.Millisecond)
-
+	time.Sleep(10000 * time.Millisecond)
 		
 	fmt.Printf("Passed...\n")
 }
 
-func TestGetEmitted(t *testing.T) {
-	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously
+// func TestGetEmitted(t *testing.T) {
+// 	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously
 
-	fmt.Printf("Test: Getting Emitted Intermediate KVPairs ... \n")
+// 	fmt.Printf("Test: Getting Emitted Intermediate KVPairs ... \n")
 
-	const nnodes = 5
-	var pxh []string = make([]string, nnodes)         // Create empty slice of host strings
-	var pxa []*MapReduceNode = make([]*MapReduceNode, nnodes) // Create empty slice of MapReduce instances
-	defer cleanup(pxa)
+// 	const nnodes = 5
+// 	var pxh []string = make([]string, nnodes)         // Create empty slice of host strings
+// 	var pxa []*MapReduceNode = make([]*MapReduceNode, nnodes) // Create empty slice of MapReduce instances
+// 	defer cleanup(pxa)
 
-	for i := 0; i < nnodes; i++ {
-		pxh[i] = port("basic", i)
-	}
-	for i := 0; i < nnodes; i++ {
-		pxa[i] = MakeMapReduceNode(pxh, i, nil, "unix")
-	}
-	fmt.Println(pxa)
-	fmt.Println(pxh)
+// 	for i := 0; i < nnodes; i++ {
+// 		pxh[i] = port("basic", i)
+// 	}
+// 	for i := 0; i < nnodes; i++ {
+// 		pxa[i] = MakeMapReduceNode(pxh, i, nil, "unix")
+// 	}
+// 	fmt.Println(pxa)
+// 	fmt.Println(pxh)
 
-	// hack
+// 	// hack
 
-	args := &GetEmittedArgs{JobId: "321930231", TaskId: "766576575"}
-	var reply GetEmittedReply
-	pxa[0].Get(args, &reply)
+// 	args := &GetEmittedArgs{JobId: job_id, TaskId: "766576575"}
+// 	var reply GetEmittedReply
+// 	pxa[0].Get(args, &reply)
 
-	if reply.Err != ErrNoKey {
-		t.Fatalf("invalid response when trying to read nonexistent emittedStore entry.")
-	}
+// 	if reply.Err != ErrNoKey {
+// 		t.Fatalf("invalid response when trying to read nonexistent emittedStore entry.")
+// 	}
 		
-	fmt.Printf("  ... Passed\n")
-}
+// 	fmt.Printf("  ... Passed\n")
+// }
 
 // Test that writing to and reading from s3 works
 // func TestS3(t *testing.T) {

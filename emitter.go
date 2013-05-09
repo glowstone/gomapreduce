@@ -7,7 +7,7 @@ to storage which is internal to the MapReduceNode.
 */
 
 import (
-	"fmt"
+	// "fmt"
 )
 
 /*
@@ -32,7 +32,7 @@ func makeSimpleEmitter(jobId string, emittedStorage *EmittedStorage) SimpleEmitt
 }
 
 func (self SimpleEmitter) Emit(key string, value interface{}) {
-	debug(fmt.Sprintf("Emit(%s, %v)", key, value))     //temporary
+	// debug(fmt.Sprintf("Emit(%s, %v)", key, value))     //temporary
 	kvpair := KVPair{Key: key, Value: value}
 	self.emittedStorage.putEmitted(self.jobId, kvpair)
 }

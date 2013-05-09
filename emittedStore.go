@@ -4,7 +4,7 @@ package gomapreduce
 
 import (
 	"sync"
-	"fmt"
+	// "fmt"
 	"hash/adler32"
 	"strconv"
 )
@@ -38,7 +38,7 @@ func (self *EmittedStorage) putEmitted(jobId string, pair KVPair) {
 
 	partitionNumber := strconv.Itoa(int(adler32.Checksum([]byte(pair.Key)) % uint32(2))) 		// TODO Mod R
 
-	debug(fmt.Sprintf("Writing %v to emittedStorage!", pair))
+	// debug(fmt.Sprintf("Writing %v to emittedStorage!", pair))
 	if _, present := self.storage[jobId]; !present {
 		self.storage[jobId] = make(map[string][]KVPair)
 	}

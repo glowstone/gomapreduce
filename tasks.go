@@ -97,12 +97,13 @@ type ReduceTask struct {
 	// Outputer OutputerAccessor
 	Master string                 // Port name of the master node assigning the task.
 	NetMode string                // 'unix' or 'tcp'
+	Nodes []string
 }
 
 // ReduceTask Constructor
 func makeReduceTask(id string, key string, jobId string, reducer Reducer, 
-	master string, netMode string) ReduceTask {
-	return ReduceTask{Id: id, Key: key, Reducer: reducer, Master: master, NetMode: netMode}
+	master string, netMode string, nodes []string) ReduceTask {
+	return ReduceTask{Id: id, Key: key, JobId: jobId, Reducer: reducer, Master: master, NetMode: netMode, Nodes: nodes}
 }
 
 // Get the kind of Task
@@ -127,7 +128,26 @@ func (self ReduceTask) getMaster() string {
 
 // Execute the ReduceTask
 func (self ReduceTask) execute(emitter Emitter) {
-	//TODO
+	fmt.Printf("Executing reduce task\n")
+	values := make([]KVPair, 0)
+
+	for _, node := range self.Nodes { 		// For each node, get the intermediate KVPairs that hash to your partition
+		fmt.Printf("Get(%s, %s) from node %s\n", self.JobId, self.Key, node)
+		args := &GetEmittedArgs{JobId: self.JobId, PartitionNumber: self.Key.(string)}
+
+		var reply GetEmittedReply
+		ok := call(node, self.NetMode, "MapReduceNode.Get", args, &reply)
+		
+		for !ok { 		// TODO make sure this doesn't loop forever
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		values = append(values, reply.KVPairs...)
+	}
+
+	fmt.Printf("All values: %v\n", values)
+
+	// TODO self.Reducer.reduce(values)
 }
 
 // Notify master that Job completed
