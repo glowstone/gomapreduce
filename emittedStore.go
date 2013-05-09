@@ -4,7 +4,6 @@ package gomapreduce
 
 import (
 	"sync"
-	// "fmt"
 	"hash/adler32"
 	"strconv"
 )
@@ -19,7 +18,7 @@ type KVPair struct {
 
 type EmittedStorage struct {
 	mu sync.Mutex                           // Singleton mutex for storage system
-	storage map[string]map[string][]KVPair  // Maps jobID -> taskId -> []KVPair (slice)
+	storage map[string]map[string][]KVPair  // Maps jobID ->  -> []KVPair (slice)
 }
 
 // EmittedStore Constructor
@@ -34,15 +33,17 @@ Adds an individual emitted intermediate KVPair corresponding to a particular job
 and taskId.
 */
 func (self *EmittedStorage) putEmitted(jobId string, pair KVPair) {
-	//TODO - locking for safe writes
+	self.mu.Lock()
+	defer self.mu.Unlock()
 
 	partitionNumber := strconv.Itoa(int(adler32.Checksum([]byte(pair.Key)) % uint32(2))) 		// TODO Mod R
 
-	// debug(fmt.Sprintf("Writing %v to emittedStorage!", pair))
 	if _, present := self.storage[jobId]; !present {
+		// Create string -> []KVPair map for the jobId
 		self.storage[jobId] = make(map[string][]KVPair)
 	}
 	if _, present := self.storage[jobId][partitionNumber]; !present {
+		// Create []KVPair slice for the hashedKey
 		self.storage[jobId][partitionNumber] = make([]KVPair,0)
 	}
 	slicePairs := self.storage[jobId][partitionNumber]

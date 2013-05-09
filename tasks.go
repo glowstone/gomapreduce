@@ -75,7 +75,7 @@ func (self MapTask) completed() {
 	for !notified {
 		args := TaskCompleteArgs{JobId: self.getJobId(), TaskId: self.getId()}
 		var reply TaskCompleteReply
-		debug(fmt.Sprintf("Send TaskComplete: %s", self.Id))
+		debug(fmt.Sprintf("Sending TaskComplete: %s", self.Id))
 		ok := call(self.Master, self.NetMode, "MapReduceNode.TaskCompleted", args, &reply)
 		if ok && reply.OK {
 			notified = true
@@ -150,13 +150,13 @@ func (self ReduceTask) execute(emitter Emitter) {
 	self.Reducer.Reduce(values)
 }
 
-// Notify master that Job completed
+// 
 func (self ReduceTask) completed() {
 	var notified bool
 	for !notified {
 		args := TaskCompleteArgs{JobId: self.getJobId(), TaskId: self.getId()}
 		var reply TaskCompleteReply
-		debug(fmt.Sprintf("Send TaskComplete: %s", self.Id))
+		debug(fmt.Sprintf("Sending TaskComplete: %s", self.Id))
 		ok := call(self.Master, self.NetMode, "MapReduceNode.TaskCompleted", args, &reply)
 		if ok && reply.OK {
 			notified = true

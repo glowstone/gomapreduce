@@ -21,7 +21,7 @@ type Mapper interface {
 
 /*
 Demo Mapper implementation. Used to count the number of occurances of different
- words.
+ words in a chunk of text.
 */
 type DemoMapper struct {}
 

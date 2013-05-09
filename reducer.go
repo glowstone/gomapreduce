@@ -6,7 +6,9 @@ service to define the 'reduce' operation used in a Map Reduce job.
 http://research.google.com/archive/mapreduce.html
 */
 
-import "fmt"         // temporary
+import (
+	"fmt"      // temporary
+)
 
 type Reducer interface {
 	Reduce(interface{}) interface{}
@@ -14,7 +16,10 @@ type Reducer interface {
 
 
 /*
-Demo Reducer implementation used for performing demo MapReduce jobs.
+Demo Reducer impelementation. Aggregates the counts of particular words. The Reduce
+method is executed in a ReduceTask, which is responsible for aggregating the word
+counts of all words (words used as intermediate keys) which hash to the same value
+modulo R. 
 */
 type DemoReducer struct {
 
@@ -25,12 +30,7 @@ Accepts a string key and returns the total int number of occurances of that key
 over all intermediate key/value pairs with the given key.
 */
 func (self DemoReducer) Reduce(data interface{}) interface{} {
-	//key := data.(string)                  // type assertion
-
-	// TODO fetch all intermediate data via an intermediateAccessor implementation
-	//intermediate := list
-	//map[string]int{is:3, is:4, is:1, is:1}
-
+	
 	fmt.Println("DemoReducer doing reduce")
 
 	wordCounts := make(map[string]int)

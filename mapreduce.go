@@ -13,7 +13,6 @@ import (
 	"sync"
 	"fmt"
 	"math/rand"
-	//"math"
 	"time"
 	"encoding/gob"
   "runtime"
@@ -200,32 +199,31 @@ func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) err
 // Gets all the keys that need to be mapped via MapTasks for the job and 
 // constructs MapTask instances. Returns a slice of MapTasks.
 func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
-  var task_list []MapTask
+  var mapTasks []MapTask
 
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
-    task_id := generate_uuid()
-    maptask := makeMapTask(task_id, key, job.getId(), job.mapper, job.inputer, self.nodes[self.me], self.netMode)
-    task_list = append(task_list, maptask)
+    taskId := generate_uuid()
+    maptask := makeMapTask(taskId, key, job.getId(), job.mapper, job.inputer, self.nodes[self.me], self.netMode)
+    mapTasks = append(mapTasks, maptask)
 	}
-	return task_list
+	return mapTasks
 }
 
 // Gets all the keys that need to be mapped via MapTasks for the job and 
 // constructs MapTask instances. Returns a slice of MapTasks.
 func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTask {
-  fmt.Printf("Making reduce tasks\n")
-  var task_list []ReduceTask
+  var reduceTasks  []ReduceTask
 
-  for i:=0; i<config.r; i++ {
+  for i:=0; i < config.r; i++ {
     key := strconv.Itoa(i)
-    task_id := generate_uuid()
-    reduceTask := makeReduceTask(task_id, key, job.getId(), job.reducer, self.nodes[self.me], self.netMode, self.nodes)
-    fmt.Printf("Made reduce task for partition %s\n", key)
-    task_list = append(task_list, reduceTask)
+    taskId := generate_uuid()
+    // not sure about passing self.nodes, probably a better way to encapsulate
+    reduceTask := makeReduceTask(taskId, key, job.getId(), job.reducer, self.nodes[self.me], self.netMode, self.nodes)
+    debug(fmt.Sprintf("Made reduce task for partition %s\n", key))
+    reduceTasks = append(reduceTasks, reduceTask)
   }
-
-  return task_list
+  return reduceTasks
 }
 
 /*
