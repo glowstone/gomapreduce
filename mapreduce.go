@@ -16,7 +16,6 @@ import (
 	"time"
 	"encoding/gob"
   "runtime"
-  "strconv"
 )
 
 type MapReduceNode struct {
@@ -128,9 +127,11 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 Executes the MapTask or ReduceTask
 */
 func (self *MapReduceNode) workerRole(task Task) {
-  emitter := makeSimpleEmitter(task.getJobId(), &self.emittedStorage)
+  // TODO if task is MapTask do this... else....
+  emitter := makeSimpleEmitter(task.getJobId(), task.getJobConfig(), &self.emittedStorage)
   // Pass Emitter which can be used by client Mapper to write to the emittedStorage.
   task.execute(emitter)
+
   return
 }
 
@@ -196,31 +197,35 @@ func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) err
 // Helpers
 ///////////////////////////////////////////////////////////////////////////////
 
-// Gets all the keys that need to be mapped via MapTasks for the job and 
-// constructs MapTask instances. Returns a slice of MapTasks.
+/*
+Gets all the keys that need to be mapped via MapTasks for the job and constructs 
+MapTask instances. Returns a slice of MapTasks.
+*/
 func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
   var mapTasks []MapTask
 
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     taskId := generate_uuid()
-    maptask := makeMapTask(taskId, key, job.getId(), job.mapper, job.inputer, self.nodes[self.me], self.netMode)
+    maptask := makeMapTask(taskId, key, job.getId(), config, job.mapper, job.inputer, self.nodes[self.me], self.netMode)
     mapTasks = append(mapTasks, maptask)
 	}
 	return mapTasks
 }
 
-// Gets all the keys that need to be mapped via MapTasks for the job and 
-// constructs MapTask instances. Returns a slice of MapTasks.
+/*
+Creates R ReduceTasks assigned as reduceGroups 0,1,...(R-1). Each ReduceTask with
+a partition number 'partitionNumber'is responsible for executing the 'reduce' 
+method on for all intermediate values where hash(key)%R equals the 'partitionNumber'.
+Returns a slice of ReduceTasks.
+*/
 func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTask {
   var reduceTasks  []ReduceTask
 
-  for i:=0; i < config.r; i++ {
-    key := strconv.Itoa(i)
+  for partitionNumber :=0 ; partitionNumber < config.R ; partitionNumber ++ {
     taskId := generate_uuid()
-    // not sure about passing self.nodes, probably a better way to encapsulate
-    reduceTask := makeReduceTask(taskId, key, job.getId(), job.reducer, self.nodes[self.me], self.netMode, self.nodes)
-    debug(fmt.Sprintf("Made reduce task for partition %s\n", key))
+    // TODO: pass the EmittedReader wrapper instead of self.nodes
+    reduceTask := makeReduceTask(taskId, partitionNumber, job.getId(), config, job.reducer, self.nodes[self.me], self.netMode, self.nodes)
     reduceTasks = append(reduceTasks, reduceTask)
   }
   return reduceTasks
@@ -387,6 +392,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     gob.Register(GetEmittedArgs{})
     gob.Register(GetEmittedReply{})
     gob.Register(KVPair{})
+    gob.Register(JobConfig{})
 
     gob.Register(DemoMapper{})
     gob.Register(DemoReducer{})

@@ -11,7 +11,7 @@ import (
 )
 
 type Reducer interface {
-	Reduce(interface{}) interface{}
+	Reduce(key string, values []interface{})          // TODO, add Otuputer
 }
 
 
@@ -29,18 +29,17 @@ type DemoReducer struct {
 Accepts a string key and returns the total int number of occurances of that key
 over all intermediate key/value pairs with the given key.
 */
-func (self DemoReducer) Reduce(data interface{}) interface{} {
+func (self DemoReducer) Reduce(key string, data []interface{}) {
 	
 	fmt.Println("DemoReducer doing reduce")
 
-	wordCounts := make(map[string]int)
-	dataSlice := data.([]KVPair)
-	for _, pair := range dataSlice {
-		// fmt.Printf("Pair: %v\n", pair)
-		key := pair.Key
-		value := pair.Value
-		wordCounts[key] += value.(int)
-	}
-	fmt.Printf("\nOUTPUT!!!: %v\n\n", wordCounts)
-	return nil
+	// wordCounts := make(map[string]int)
+	// dataSlice := data.([]KVPair)
+	// for _, pair := range dataSlice {
+	// 	// fmt.Printf("Pair: %v\n", pair)
+	// 	key := pair.Key
+	// 	value := pair.Value
+	// 	wordCounts[key] += value.(int)
+	// }
+	// fmt.Printf("\nOUTPUT!!!: %v\n\n", wordCounts)
 }

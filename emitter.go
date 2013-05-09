@@ -7,7 +7,7 @@ to storage which is internal to the MapReduceNode.
 */
 
 import (
-	// "fmt"
+
 )
 
 /*
@@ -22,19 +22,23 @@ type Emitter interface {
 
 type SimpleEmitter struct {
 	jobId string             // Job identifier the Emitter should emit KVPairs to.
+	jobConfig JobConfig      // Job Config passed to emittedStorage to hash intermediate keys modulo R
 	emittedStorage *EmittedStorage      // Pointer to an emittedStorage instance
 }
 
 // SimpleEmitter Constructor
-func makeSimpleEmitter(jobId string, emittedStorage *EmittedStorage) SimpleEmitter {
-	se := SimpleEmitter{jobId: jobId, emittedStorage: emittedStorage}
+func makeSimpleEmitter(jobId string, jobConfig JobConfig, 
+	emittedStorage *EmittedStorage) SimpleEmitter {
+
+	se := SimpleEmitter{jobId: jobId, 
+		jobConfig: jobConfig,
+		emittedStorage: emittedStorage}
 	return se
 }
 
 func (self SimpleEmitter) Emit(key string, value interface{}) {
-	// debug(fmt.Sprintf("Emit(%s, %v)", key, value))     //temporary
 	kvpair := KVPair{Key: key, Value: value}
-	self.emittedStorage.putEmitted(self.jobId, kvpair)
+	self.emittedStorage.putEmitted(self.jobId, self.jobConfig, kvpair)
 }
 	
 
