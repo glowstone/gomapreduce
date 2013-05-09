@@ -26,20 +26,16 @@ type DemoReducer struct {
 }
 
 /*
-Accepts a string key and returns the total int number of occurances of that key
-over all intermediate key/value pairs with the given key.
+Accepts a word key and a list of the different counts of occurances of that word
+in the text chunks handled by different MapTasks. Uses the given Outputer to
+output the resulting total as 'word: total count'
 */
 func (self DemoReducer) Reduce(key string, data []interface{}) {
-	
-	fmt.Println("DemoReducer doing reduce")
-
-	// wordCounts := make(map[string]int)
-	// dataSlice := data.([]KVPair)
-	// for _, pair := range dataSlice {
-	// 	// fmt.Printf("Pair: %v\n", pair)
-	// 	key := pair.Key
-	// 	value := pair.Value
-	// 	wordCounts[key] += value.(int)
-	// }
-	// fmt.Printf("\nOUTPUT!!!: %v\n\n", wordCounts)
+	total := 0
+	for _, count := range data {
+		total += count.(int)
+	}
+	result := fmt.Sprintf("%s: %d", key, total)
+	debug(result)
+	// outputer.Output(result)
 }

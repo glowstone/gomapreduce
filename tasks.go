@@ -143,11 +143,14 @@ func (self ReduceTask) getMaster() string {
 }
 
 // Execute the ReduceTask
+// TODO: remove emitter and replace with outputer. Change mapreduce.go code accordingly.
 func (self ReduceTask) execute(emitter Emitter) {
 	fmt.Printf("Executing reduce task\n")
-	values := make([]KVPair, 0)
+	allvalues := make([]KVPair, 0)
+	// allvalues is a temporary name
 
 	// Migrate to emittedReader
+	/////////////////////////////////////////
 	for _, node := range self.Nodes { 		// For each node, get the intermediate KVPairs that hash to your partition
 		fmt.Printf("Get(%s, %s) from node %s\n", self.JobId, self.PartitionNumber, node)
 		args := &GetEmittedArgs{JobId: self.JobId, PartitionNumber: self.PartitionNumber}
@@ -159,16 +162,32 @@ func (self ReduceTask) execute(emitter Emitter) {
 			time.Sleep(50 * time.Millisecond)
 		}
 
-		values = append(values, reply.KVPairs...)
+		allvalues = append(allvalues, reply.KVPairs...)
 	}
 
-	fmt.Printf("All values: %v\n", values)
+	fmt.Printf("All values: %v\n", allvalues)
+	/////////////////////////////
 
-
-
+	
+	// Sort and Group by Intermediate Keys.
+	uniqueKeys := make(map[string]int)   // Serves as mathematical Set
+	for _, pair := range allvalues {
+		uniqueKeys[pair.Key] = 1
+	}
+	fmt.Println("unique keys", uniqueKeys)
+	for key, _ := range uniqueKeys {
+		fmt.Println(key)
+		// Collect values from KVPairs with a particular Key
+		values := make([]interface{}, 0)
+		for _, pair := range allvalues {
+			values = append(values, pair.Value)
+		}
+		fmt.Println(values)
+		// Call Reduce on groups of KVPairs with the same key.
+		self.Reducer.Reduce(key, values)
+	}
+	fmt.Println(uniqueKeys)
 	//self.Reducer.Reduce(values)
-
-
 	//self.completed()
 }
 
