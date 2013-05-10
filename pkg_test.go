@@ -31,6 +31,14 @@ func cleanup(pxa []*MapReduceNode) {
 	}
 }
 
+// func TestBootstrap(t *testing.T) {
+// 	// Bootstrap
+// 	bucket := GetBucket()
+// 	fmt.Println(bucket)
+// 	SplitFileIntoChunks("output.txt", bucket, "small_test", 100000) // Split the file into chunks of 1 byte each and write them to s3
+// 	fmt.Println("Bootstrapped!")
+// }
+
 
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously

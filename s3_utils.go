@@ -12,8 +12,19 @@ import (
 
 // Fetches the bucket used for this project. Hardcoded access keys and bucket name for now for simplicity.
 func GetBucket() s3.Bucket{
-	bucketName := "mapreduce_testing1"
-	key := aws.AccessKey{"AKIAJ6XE2BOMK4K4WPTA", "IoAnEqiwKCr8yQfuFsKj1Tsoj4y3AxnJRQYPH23v"}
+	bucketName := os.Getenv("S3_BUCKET_NAME")
+	awsAccessKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+	awsSecretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	if bucketName == "" {
+		bucketName = "mapreduce_testing1"
+	}
+	if awsAccessKeyId == "" {
+		awsAccessKeyId = "AKIAJ6XE2BOMK4K4WPTA"
+	}
+	if awsSecretAccessKey == "" {
+		awsSecretAccessKey = "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"
+	}
+	key := aws.AccessKey{awsAccessKeyId, awsSecretAccessKey}
 	region := s3.RegionUsStandard
 
 	bucket, err := s3.OpenBucket(bucketName, region, key)	// Get the Bucket object

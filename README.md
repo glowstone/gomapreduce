@@ -1,11 +1,55 @@
 
 
-# Quickstart
+## Not Ready for Public Use!
 
-	# set the GOPATH to your go workspace
-	export GOPATH=$HOME/go-workspace
-	cd $HOME/go-workspace/src
-	git clone git@github.com:dghubble/gomapreduce.git gomapreduce
+# gomapreduce v0.0.5
+
+## Quick start
+
+	(Install)[http://golang.org/doc/install] Go (or use this Gist (script)[https://gist.github.com/dghubble/5510615] and (setup your Go workspace)[http://golang.org/doc/code.html] if you haven't already.
+
+	cd go-workspace/src
+	git clone git@github.com:glowstone/gomapreduce.git
+	go install gomapreduce
+	go test       // ensure the tests pass
+
+	Consult the (gomrclient)[https://github.com/glowstone/gomrclient], an example application which uses the gomapreduce library to run simple word frequency counting jobs.
+
+
+### Environment Variables
+
+If you choose to use the S3Inputer to read in input data or the S3Outputer to write output data you should define the S3_BUCKET_NAME, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY environment variables. Future Inputers and Oututers are also likely to make use of environment variables. You can set these variables manually, but we recommend (virtualenvwrapper)[http://virtualenvwrapper.readthedocs.org/en/latest/]
+
+After you've made a virtual environment, place the following in your venv/bin/postactivate script:
+
+	export S3_BUCKET_NAME=gomapreduce
+	export AWS_ACCESS_KEY_ID=xxx
+	export AWS_SECRET_ACCESS_KEY=yyy
+
+and place the following in your venv/bin/postdeactivate script.
+
+	unset S3_BUCKET_NAME
+	unset AWS_ACCESS_KEY_ID
+	unset AWS_SECRET_ACCESS_KEY
+
+## Versioning
+
+## Features
+
+## Limitations
+
+
+## Contributing
+
+
+## Authors
+
+**Dalton Hubble**
+**Thomas Garver**
+
+
+## Copyright and License
+
 
 # Overview
 

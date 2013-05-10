@@ -143,31 +143,7 @@ func (self ReduceTask) getMaster() string {
 // Execute the ReduceTask.
 // TODO, add outputer Outputer
 func (self ReduceTask) execute(emittedReader EmittedReader) {
-
-	dataPairs := emittedReader.ReadEmitted(self.getJobId(), self.PartitionNumber)
-	// fmt.Printf("Executing reduce task\n")
-	// allvalues := make([]KVPair, 0)
-	// // allvalues is a temporary name
-
-	// // Migrate to emittedReader
-	// /////////////////////////////////////////
-	// for _, node := range self.Nodes { 		// For each node, get the intermediate KVPairs that hash to your partition
-	// 	fmt.Printf("Get(%s, %s) from node %s\n", self.JobId, self.PartitionNumber, node)
-	// 	args := &GetEmittedArgs{JobId: self.JobId, PartitionNumber: self.PartitionNumber}
-
-	// 	var reply GetEmittedReply
-	// 	ok := call(node, self.NetMode, "MapReduceNode.Get", args, &reply)
-		
-	// 	for !ok { 		// TODO make sure this doesn't loop forever
-	// 		time.Sleep(50 * time.Millisecond)
-	// 	}
-
-	// 	allvalues = append(allvalues, reply.KVPairs...)
-	// }
-
-	// fmt.Printf("All values: %v\n", allvalues)
-	// /////////////////////////////
-
+	dataPairs := emittedReader.ReadEmitted(self.getJobId(), self.PartitionNumber)	
 	
 	// Sort and Group by Intermediate Keys.
 	uniqueKeys := make(map[string]int)   // Serves as mathematical Set
