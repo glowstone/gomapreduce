@@ -62,7 +62,7 @@ func TestBasic(t *testing.T) {
 	reducer := DemoReducer{}
 	config := MakeJobConfig("small_test", "", 2, 2, true, "")
 	inputer := MakeS3Accessor("small_test")
-	outputer := MakeS3Outputer()
+	outputer := MakeS3Outputer("small_test/output")
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
 	debug(fmt.Sprintf("job_id: %s", job_id))
 

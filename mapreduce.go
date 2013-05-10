@@ -105,18 +105,31 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
 
   done := false
-  for !done {
+  for !done {   // Loop until all MapTasks are done
     fmt.Printf("Unassigned: %s\n", self.tm.listTasks(jobId, "unassigned", "all"))
     fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
     fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
-    time.Sleep(5000 * time.Millisecond) 
-    done = true // TODO make this actually check if they're done
+    time.Sleep(2000 * time.Millisecond) 
+    numUnfinished := self.tm.countTasks(jobId, "unassigned", "all") + self.tm.countTasks(jobId, "assigned", "all")
+    done = (numUnfinished == 0)     // If there are no unfinished tasks, then we're done with this phase
   }
 
   // ReduceTasks (+ failed MapTasks )
   reduceTasks := self.makeReduceTasks(job, config)
   self.tm.addBulkReduceTasks(job.getId(), reduceTasks)
   self.assignTasks(jobId)
+
+  done = false
+  for !done {     // Loop until all tasks are done
+    // TODO reassign map tasks whose workers failed
+    fmt.Printf("Unassigned: %s\n", self.tm.listTasks(jobId, "unassigned", "all"))
+    fmt.Printf("Assigned: %s\n", self.tm.listTasks(jobId, "assigned", "all"))
+    fmt.Printf("Completed: %s\n", self.tm.listTasks(jobId, "completed", "all"))
+    time.Sleep(2000*time.Millisecond)
+    numUnfinished := self.tm.countTasks(jobId, "unassigned", "all") + self.tm.countTasks(jobId, "assigned", "all")
+    done = (numUnfinished == 0)     // If there are no unfinished tasks, then we're done with this phase
+  }
+  fmt.Println("\n\nDONE!\n")
   //self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
 
   // // Cleanup
@@ -230,7 +243,7 @@ func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTa
   for partitionNumber :=0 ; partitionNumber < config.R ; partitionNumber ++ {
     taskId := generate_uuid()
     // TODO: pass the EmittedReader wrapper instead of self.nodes
-    reduceTask := makeReduceTask(taskId, partitionNumber, job.getId(), config, job.reducer, self.nodes[self.me], self.netMode, self.nodes)
+    reduceTask := makeReduceTask(taskId, partitionNumber, job.getId(), config, job.reducer, self.nodes[self.me], self.netMode, self.nodes, job.outputer)
     reduceTasks = append(reduceTasks, reduceTask)
   }
   return reduceTasks
@@ -412,6 +425,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     gob.Register(DemoMapper{})
     gob.Register(DemoReducer{})
     gob.Register(S3Accessor{})
+    gob.Register(S3Outputer{})
     gob.Register(SimpleIntermediateAccessor{})
     gob.Register(IntermediatePair{})
 
