@@ -35,7 +35,7 @@ func cleanup(pxa []*MapReduceNode) {
 // 	// Bootstrap
 // 	bucket := GetBucket()
 // 	fmt.Println(bucket)
-// 	SplitFileIntoChunks("output.txt", bucket, "small_test", 100000) // Split the file into chunks of 1 byte each and write them to s3
+// 	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
 // 	fmt.Println("Bootstrapped!")
 // }
 

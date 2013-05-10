@@ -27,12 +27,11 @@ type MapReduceNode struct {
 
 	me int                // index into nodes
 	nodes []string        // MapReduceNode port names
-	node_count int
 	netMode string        // "unix" or "tcp"
 
 	// State for master role
-	jobs map[string] Job   // Maps string job_id -> Job
-  tm TaskManager         // all Tasks the MapReduceNode while acting as a master
+  jm JobManager          // Manages Jobs the node is responsible for as a master.
+  tm TaskManager         // Manages Tasks the node is responsible for as a master.
 
 	// State for worker roles
   emittedStorage EmittedStorage    // Storage system for emitted intermediate KVPairs
@@ -64,8 +63,8 @@ func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper,
   reducer Reducer, inputer InputAccessor, outputer OutputAccessor) string {
 
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
-  job := makeJob(job_id, "starting", self.me, mapper, reducer, inputer, outputer)
-  self.jobs[job.getId()] = job
+  job := makeJob(job_id, mapper, reducer, inputer, outputer)
+  self.jm.addJob(job, "starting")
 
   debug(fmt.Sprintf("(svr:%d) Start: job_id: %s, job: %v", self.me, job_id, job))
 
@@ -309,7 +308,6 @@ func (self *MapReduceNode) awaitTasks(jobId string, status string, kind string) 
         done = false           // Continue await if any Task has not reached desired status
       }
     }
-    fmt.Println("WAIT!!!!")
     time.Sleep(100 * time.Millisecond) 
   }
   return
@@ -382,11 +380,8 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   mr.nodes = nodes    
   mr.me = me
   mr.netMode = mode
-  // Initialization code
-  mr.node_count = len(nodes)
-  mr.jobs = make(map[string]Job)
-
-  // Each node manages Tasks for possibly many concurrent Jobs.
+  // Nodes acting as masters manage Jobs and Tasks
+  mr.jm = makeJobManager()
   mr.tm = makeTaskManager(len(nodes))
 
   // Each node stores emitted intermediate pairs for multiple jobs.
