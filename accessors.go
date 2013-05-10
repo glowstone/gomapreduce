@@ -4,7 +4,6 @@ package gomapreduce
 import (
 	"fmt"
 	"strings"
-	"hash/adler32"
 	"strconv"
 )
 
@@ -62,70 +61,4 @@ func (self S3Outputer) Output(key string, value interface{}) {
 
 func MakeS3Outputer(outputFolder string) S3Outputer {
 	return S3Outputer{OutputFolder: outputFolder}
-}
-
-
-
-type IntermediateAccessor interface{
-	Emit(jobId string, key string, value interface{})
-	ReadIntermediateValues(jobId string, key string) []interface{} 	// There might be multiple values associated with an intermediate key, even on this one node
-}
-
-type SimpleIntermediateAccessor struct {
-	EmittedStore *EmittedStore
-}
-
-func MakeSimpleIntermediateAccessor() SimpleIntermediateAccessor {
-	return SimpleIntermediateAccessor{makeEmittedStore()}
-}
-
-
-func (self SimpleIntermediateAccessor) Emit(jobId string, key string, value interface{}) {
-	fmt.Printf("Emit(%s, %d)\n", key, value)
-
-	partitionNumber := strconv.Itoa(int(adler32.Checksum([]byte(key)) % uint32(2))) 		// TODO Mod R
-
-	JobId := "0"		// TODO pass this in
-
-	pair := IntermediatePair{key, value}
-
-	_, present := self.EmittedStore.Storage[JobId]		// If the internal map doesn't exist yet, make one
-	if !present {
-		m := make(map[string][]IntermediatePair)
-		self.EmittedStore.Storage[JobId] = m
-	}
-
-	values, present := self.EmittedStore.Storage[JobId][partitionNumber]
-	if present { 		// If the slice of values exists, append to it
-		values = append(values, pair)
-		fmt.Printf("Values: %v\n", values)
-	} else { 			// Otherwise create the slice and append the value to it
-		values = make([]IntermediatePair, 0)
-		values = append(values, pair)
-		fmt.Printf("(%s, %v)\n", partitionNumber, values)
-	}
-	self.EmittedStore.Storage[JobId][partitionNumber] = values
-}
-
-// Given a JobId and a key, reads the values (IntermediatePairs) from this Emitter's storage
-func (self SimpleIntermediateAccessor) ReadIntermediateValues(jobId string, key string) []interface{} {
-	fmt.Printf("Reading intermediate values for key %s\n", key)
-	fmt.Printf("Values: %s\n", self.EmittedStore.Storage[jobId][key]) 	// TODO error checking?
-	return nil
-}
-
-// Struct for storing emitted values (intermediate key/value pairs)
-type EmittedStore struct {
-	Storage map[string]map[string][]IntermediatePair 	// Maps jobId -> intermediate key -> Intermediate Pairs
-}
-
-func makeEmittedStore() *EmittedStore {
-	m := make(map[string]map[string][]IntermediatePair)
-	return &EmittedStore{m}
-}
-
-// Stores tuple of intermediate key/intermediate value
-type IntermediatePair struct {
-	Key string
-	Value interface{}
 }

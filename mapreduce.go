@@ -75,6 +75,11 @@ func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper,
   return job_id
 }
 
+func (self *MapReduceNode) Status(jobId string) {
+  //TODO
+  debug(fmt.Sprintf("Called Status"))
+}
+
 
 /*
 Performs the requested Job by breaking it into tasks based on the JobConfig,
@@ -243,7 +248,7 @@ func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTa
   for partitionNumber :=0 ; partitionNumber < config.R ; partitionNumber ++ {
     taskId := generate_uuid()
     // TODO: pass the EmittedReader wrapper instead of self.nodes
-    reduceTask := makeReduceTask(taskId, partitionNumber, job.getId(), config, job.reducer, self.nodes[self.me], self.netMode, self.nodes, job.outputer)
+    reduceTask := makeReduceTask(taskId, partitionNumber, job.getId(), config, job.reducer, job.outputer, self.nodes[self.me], self.netMode)
     reduceTasks = append(reduceTasks, reduceTask)
   }
   return reduceTasks
@@ -410,31 +415,33 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   } else {
     rpcs = rpc.NewServer() // creates a new RPC server
     rpcs.Register(mr)      // Register exported methods of MapReduceNode with RPC Server         
-    // gob.Register(TestRPCArgs{})
-    // gob.Register(TestRPCReply{})
     
+    // Comm Structs
     gob.Register(PingArgs{})
     gob.Register(PingReply{})
-    gob.Register(MapTask{})
-    gob.Register(ReduceTask{})
+    gob.Register(AssignTaskArgs{})
+    gob.Register(AssignTaskReply{})
+    gob.Register(TaskCompleteArgs{})
+    gob.Register(TaskCompleteReply{})
     gob.Register(GetEmittedArgs{})
     gob.Register(GetEmittedReply{})
+
+    // System Transferred Structs
+    gob.Register(MapTask{})
+    gob.Register(ReduceTask{})
     gob.Register(KVPair{})
     gob.Register(JobConfig{})
 
+    // Client specified objects
     gob.Register(DemoMapper{})
     gob.Register(DemoReducer{})
     gob.Register(S3Accessor{})
     gob.Register(S3Outputer{})
-    gob.Register(SimpleIntermediateAccessor{})
-    gob.Register(IntermediatePair{})
-
-    gob.Register(EmittedStore{}) // ??
 
     // Prepare node to receive connections
 
     if mode == "tcp" {
-      fmt.Println("Making in TCP mode")
+      debug(fmt.Sprintln("Making TCP mode MapReduceNode"))
       listener, error := net.Listen("tcp", ":8080");
 
       if error != nil {
@@ -472,8 +479,8 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
       }()
 
     } else {
-      fmt.Println("Making in Unix mode")
       // mode assumed to be "unix"
+      debug(fmt.Sprintln("Making unix mode MapReduceNode"))
 
       os.Remove(nodes[me]) // only needed for "unix"
       listener, error := net.Listen("unix", nodes[me]);
@@ -481,11 +488,6 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
         log.Fatal("listen error: ", error);
       }
       mr.l = listener      // Set MapReduceNode listener
-
-      
-
-      // please do not change any of the following code,
-      // or do anything to subvert it.
       
       // create a thread to accept RPC connections
       go func() {
@@ -521,6 +523,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
 
   }
 
+  // Spawn a thread to call mr.tick() every 250ms
   go func() {
     for mr.dead == false {
       mr.tick()

@@ -100,20 +100,18 @@ type ReduceTask struct {
 	JobId string                 // Identifies the Job this Task corresponds to.
 	JobConfig JobConfig          // JobConfig for the Job this Task corresponds to.  
 	Reducer Reducer              // Implementation of Reducer interface.
-	// Outputer OutputerAccessor
-	Master string                 // Port name of the master node assigning the task.
-	NetMode string                // 'unix' or 'tcp'
-	Nodes []string
-	Outputer OutputAccessor
+	Outputer OutputAccessor      // Allows worker to write to the final output.
+	Master string                // Port name of the master node assigning the task.
+	NetMode string               // 'unix' or 'tcp'
 }
 
 // ReduceTask Constructor
 func makeReduceTask(id string, partitionNumber int, jobId string, jobConfig JobConfig,
-	reducer Reducer, master string, netMode string, nodes []string, outputer OutputAccessor) ReduceTask {
+	reducer Reducer, outputer OutputAccessor, master string, netMode string) ReduceTask {
 
 	return ReduceTask{Id: id, PartitionNumber: partitionNumber, JobId: jobId, 
-		JobConfig: jobConfig, Reducer: reducer, Master: master, NetMode: netMode, 
-		Nodes: nodes, Outputer: outputer}
+		JobConfig: jobConfig, Reducer: reducer, Outputer: outputer, Master: master, 
+		NetMode: netMode}
 }
 
 // Get ReduceTask Id
@@ -142,7 +140,6 @@ func (self ReduceTask) getMaster() string {
 }
 
 // Execute the ReduceTask.
-// TODO, add outputer Outputer
 func (self ReduceTask) execute(emittedReader EmittedReader) {
 	dataPairs := emittedReader.ReadEmitted(self.getJobId(), self.PartitionNumber)	
 	

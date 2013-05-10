@@ -60,13 +60,13 @@ func TestBasic(t *testing.T) {
 
 	mapper := DemoMapper{}
 	reducer := DemoReducer{}
-	config := MakeJobConfig("small_test", "", 2, 2, true, "")
+	config := MakeJobConfig("small_test", "small_test_output", 2, 2, true, "")
 	inputer := MakeS3Accessor("small_test")
 	outputer := MakeS3Outputer("small_test/output")
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
 	debug(fmt.Sprintf("job_id: %s", job_id))
 
-	time.Sleep(10000 * time.Millisecond)
+	time.Sleep(30000 * time.Millisecond)
 		
 	fmt.Printf("Passed...\n")
 }
