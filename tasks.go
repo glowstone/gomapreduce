@@ -104,15 +104,16 @@ type ReduceTask struct {
 	Master string                 // Port name of the master node assigning the task.
 	NetMode string                // 'unix' or 'tcp'
 	Nodes []string
+	Outputer OutputAccessor
 }
 
 // ReduceTask Constructor
 func makeReduceTask(id string, partitionNumber int, jobId string, jobConfig JobConfig,
-	reducer Reducer, master string, netMode string, nodes []string) ReduceTask {
+	reducer Reducer, master string, netMode string, nodes []string, outputer OutputAccessor) ReduceTask {
 
 	return ReduceTask{Id: id, PartitionNumber: partitionNumber, JobId: jobId, 
 		JobConfig: jobConfig, Reducer: reducer, Master: master, NetMode: netMode, 
-		Nodes: nodes}
+		Nodes: nodes, Outputer: outputer}
 }
 
 // Get ReduceTask Id
@@ -181,7 +182,7 @@ func (self ReduceTask) execute(emittedReader EmittedReader) {
 			values = append(values, pair.Value)
 		}
 		// Call Reduce on groups of KVPairs with the same key.
-		self.Reducer.Reduce(key, values)
+		self.Reducer.Reduce(key, values, self.Outputer)
 	}
 	self.completed()
 }

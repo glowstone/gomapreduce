@@ -11,7 +11,7 @@ import (
 )
 
 type Reducer interface {
-	Reduce(key string, values []interface{})          // TODO, add Otuputer
+	Reduce(key string, values []interface{}, outputer OutputAccessor)          // TODO, add Otuputer
 }
 
 
@@ -30,12 +30,12 @@ Accepts a word key and a list of the different counts of occurances of that word
 in the text chunks handled by different MapTasks. Uses the given Outputer to
 output the resulting total as 'word: total count'
 */
-func (self DemoReducer) Reduce(key string, data []interface{}) {
+func (self DemoReducer) Reduce(key string, data []interface{}, outputer OutputAccessor) {
 	total := 0
 	for _, count := range data {
 		total += count.(int)
 	}
 	result := fmt.Sprintf("%s: %d", key, total)
 	debug(result)
-	// outputer.Output(result)
+	outputer.Output(key, total)
 }
