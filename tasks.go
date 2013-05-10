@@ -26,14 +26,14 @@ type MapTask struct {
 	JobId string                  // Identifies the Job this Task corresponds to.
 	JobConfig JobConfig           // JobConfig for the Job this Task corresponds to.
 	Mapper Mapper                 // Implementation of Mapper interface.
-	Inputer InputAccessor         // Allows worker to read its chunk of the input.
+	Inputer Inputer               // Allows worker to read its chunk of the input.
 	Master string                 // Port name of the master node assigning the task.
 	NetMode string                // 'unix' or 'tcp'
 }
 
 // MapTask Constructor
 func makeMapTask(id string, key string, jobId string, jobConfig JobConfig, 
-	mapper Mapper, inputer InputAccessor, master string, netMode string) MapTask {
+	mapper Mapper, inputer Inputer, master string, netMode string) MapTask {
 
 	return MapTask{Id: id, Key: key, JobId: jobId, JobConfig: jobConfig, 
 		Mapper: mapper, Inputer: inputer, Master: master, NetMode: netMode}
@@ -100,14 +100,14 @@ type ReduceTask struct {
 	JobId string                 // Identifies the Job this Task corresponds to.
 	JobConfig JobConfig          // JobConfig for the Job this Task corresponds to.  
 	Reducer Reducer              // Implementation of Reducer interface.
-	Outputer OutputAccessor      // Allows worker to write to the final output.
+	Outputer Outputer            // Allows worker to write to the final output.
 	Master string                // Port name of the master node assigning the task.
 	NetMode string               // 'unix' or 'tcp'
 }
 
 // ReduceTask Constructor
 func makeReduceTask(id string, partitionNumber int, jobId string, jobConfig JobConfig,
-	reducer Reducer, outputer OutputAccessor, master string, netMode string) ReduceTask {
+	reducer Reducer, outputer Outputer, master string, netMode string) ReduceTask {
 
 	return ReduceTask{Id: id, PartitionNumber: partitionNumber, JobId: jobId, 
 		JobConfig: jobConfig, Reducer: reducer, Outputer: outputer, Master: master, 

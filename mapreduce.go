@@ -60,7 +60,7 @@ created. We don't currently have any scenarios where the client is not also a
 member of the network but it is totally possible.
 */
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
-  reducer Reducer, inputer InputAccessor, outputer OutputAccessor) string {
+  reducer Reducer, inputer Inputer, outputer Outputer) string {
 
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
   job := makeJob(job_id, mapper, reducer, inputer, outputer)
@@ -430,7 +430,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     // Client specified objects
     gob.Register(DemoMapper{})
     gob.Register(DemoReducer{})
-    gob.Register(S3Accessor{})
+    gob.Register(S3Inputer{})
     gob.Register(S3Outputer{})
 
     // Prepare node to receive connections
