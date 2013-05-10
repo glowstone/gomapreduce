@@ -36,6 +36,6 @@ func (self DemoReducer) Reduce(key string, data []interface{}, outputer OutputAc
 		total += count.(int)
 	}
 	result := fmt.Sprintf("%s: %d", key, total)
-	debug(result)
+	debug("Output: " + result)
 	outputer.Output(key, total)
 }

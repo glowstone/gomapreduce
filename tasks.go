@@ -152,7 +152,9 @@ func (self ReduceTask) execute(emittedReader EmittedReader) {
 		// Collect values from KVPairs with a particular Key
 		values := make([]interface{}, 0)
 		for _, pair := range dataPairs {
-			values = append(values, pair.Value)
+			if pair.Key == key {
+				values = append(values, pair.Value)
+			}
 		}
 		// Call Reduce on groups of KVPairs with the same key.
 		self.Reducer.Reduce(key, values, self.Outputer)

@@ -206,7 +206,7 @@ func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) err
     //TODO - think carefully about locking, duplicate request handling, ensuring all 
     //intermediates done being generated.
     slicePairs := self.emittedStorage.getEmitted(args.JobId, args.PartitionNumber)
-    fmt.Println("Emitted pairs:", slicePairs)
+    // fmt.Println("Emitted pairs:", slicePairs)
     if len(slicePairs) == 0 {
       reply.Err = ErrNoKey
     } else {

@@ -49,7 +49,7 @@ func (self SimpleEmittedReader) ReadEmitted(jobId string, partitionNumber int) [
 		kvpairs = append(kvpairs, reply.KVPairs...)
 	}
 
-	fmt.Printf("All values: %v\n", kvpairs)
+	// fmt.Printf("All values: %v\n", kvpairs)
 	return kvpairs
 }
 
