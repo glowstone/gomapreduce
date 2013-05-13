@@ -41,6 +41,9 @@ type MapReduceNode struct {
   lastPingTimes map[string]time.Time
   // State ("alive" or "dead") of each other node
   nodeStates map[string]string
+
+  // Temporary (until jobmanager is built)
+  jobDone map[string]bool
 }
 
 
@@ -65,6 +68,7 @@ func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper,
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
   job := makeJob(job_id, mapper, reducer, inputer, outputer)
   self.jm.addJob(job, "starting")
+  self.jobDone[job_id] = false
 
   debug(fmt.Sprintf("(svr:%d) Start: job_id: %s, job: %v", self.me, job_id, job))
 
@@ -74,9 +78,10 @@ func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper,
   return job_id
 }
 
-func (self *MapReduceNode) Status(jobId string) {
+func (self *MapReduceNode) Status(jobId string) bool{
   //TODO
-  debug(fmt.Sprintf("Called Status"))
+  // debug(fmt.Sprintf("Called Status"))
+  return self.jobDone[jobId]
 }
 
 
@@ -134,6 +139,8 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
     done = (numUnfinished == 0)     // If there are no unfinished tasks, then we're done with this phase
   }
   fmt.Println("\n\nDONE!\n")
+
+  self.jobDone[jobId] = true
   //self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
 
   // // Cleanup
@@ -326,7 +333,7 @@ func (self *MapReduceNode) sendPings() {
 
 // Ping handler, called via RPC when a node wants to ping this node
 func (self *MapReduceNode) HandlePing(args *PingArgs, reply *PingReply) error {
-	fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
+	// fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
 
 	self.lastPingTimes[args.Me] = time.Now()
 
@@ -404,6 +411,9 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   	mr.lastPingTimes[node] = time.Now()
   	mr.nodeStates[node] = "alive"
   }
+
+  // TODO remove me
+  mr.jobDone = map[string]bool{}
 
   if rpcs != nil {
     rpcs.Register(mr)      // caller created RPC Server
