@@ -150,9 +150,15 @@ func TestPing(t *testing.T) {
 		pxa[i] = MakeMapReduceNode(pxh, i, nil, "unix")
 	}
 
-
+	// Mark node 1 as dead, then wait a while, and make sure node 0 marked it as dead
     pxa[1].dead = true
     time.Sleep(1500*time.Millisecond)
+
+    // Now when we try to get the index for a live node, it should return 0 instead of 1
+    index := pxa[0].tm.getWorkerIndex(pxa[0].nodes, pxa[0].nodeStates)
+    if index != 0 {
+    	t.Fatalf("Should assign node 0, but instead trying to assign node %d\n", index)
+    }
 
     fmt.Println("... Test over. Make sure that node 0 marked node 1 as dead!")
 }

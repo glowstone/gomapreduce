@@ -163,11 +163,11 @@ func (self *TaskManager) countTasks(jobId string, status string, kind string) in
 // nodes is a slice of node names, nodeStates maps worker index -> state (alive or dead)
 func (self *TaskManager) getWorkerIndex(nodes []string, nodeStates map[string]string) int {
 	index := rand.Intn(self.nworkers)
-	alive := nodeStates[nodes[index]] == "alive"
+	alive := nodeStates[nodes[index]] != "dead"
 
 	for !alive {
 		index = rand.Intn(self.nworkers)
-		alive = nodeStates[nodes[index]] == "alive"
+		alive = nodeStates[nodes[index]] != "dead"
 	}
 	return index
 }
