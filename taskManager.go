@@ -96,7 +96,7 @@ func (self *TaskManager) addTask(jobId string, task Task) {
 		self.storage[jobId] = make(map[string]*TaskState)
 	}
 	// Initially, Tasks assigned to a random worker and are not done
-	startState := makeTaskState(task, rand.Intn(self.nworkers), "unassigned")
+	startState := makeTaskState(task, -1, "unassigned")
 	self.storage[jobId][task.getId()] = startState
 }
 
@@ -159,7 +159,18 @@ func (self *TaskManager) countTasks(jobId string, status string, kind string) in
 // TODO
 // Calls for determining percentage complete and other stats
 
+// Returns the worker index for an eligible worker, i.e. not busy and not dead
+// nodes is a slice of node names, nodeStates maps worker index -> state (alive or dead)
+func (self *TaskManager) getWorkerIndex(nodes []string, nodeStates map[string]string) int {
+	index := rand.Intn(self.nworkers)
+	alive := nodeStates[nodes[index]] == "alive"
 
+	for !alive {
+		index = rand.Intn(self.nworkers)
+		alive = nodeStates[nodes[index]] == "alive"
+	}
+	return index
+}
 
 
 

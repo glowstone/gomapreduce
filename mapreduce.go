@@ -195,7 +195,7 @@ func (self *MapReduceNode) TaskCompleted(args *TaskCompleteArgs, reply *TaskComp
   time := self.sm.taskTime(args.JobId, args.TaskId)
   fmt.Printf("Task took %v\n", time)
 
-  
+
   reply.OK = true            // acknowledge receipt of the notification
   return nil
 }
@@ -290,7 +290,10 @@ func (self *MapReduceNode) assignTasks(jobId string) {
       task = taskState.task
       args := AssignTaskArgs{Task: task}
       var reply AssignTaskReply
-      worker = self.nodes[taskState.workerIndex]
+
+      // Get a random available worker and assign it
+      workerIndex := self.tm.getWorkerIndex(self.nodes, self.nodeStates)
+      worker = self.nodes[workerIndex]  // TODO set the workerIndex of the task?
 
       ok := call(worker, self.netMode, "MapReduceNode.ReceiveTask", args, &reply)
       if ok && reply.OK {
