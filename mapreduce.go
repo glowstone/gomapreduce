@@ -189,6 +189,13 @@ func (self *MapReduceNode) TaskCompleted(args *TaskCompleteArgs, reply *TaskComp
   // assigned and a stray late packet should not switch it back.
   debug(fmt.Sprintf("(svr:%d) Received TaskCompleted: %s", self.me, args.TaskId))
   self.tm.setTaskStatus(args.JobId, args.TaskId, "completed")
+
+  // Collect stats information
+  self.sm.taskComplete(args.JobId, args.TaskId)
+  time := self.sm.taskTime(args.JobId, args.TaskId)
+  fmt.Printf("Task took %v\n", time)
+
+  
   reply.OK = true            // acknowledge receipt of the notification
   return nil
 }
@@ -289,6 +296,7 @@ func (self *MapReduceNode) assignTasks(jobId string) {
       if ok && reply.OK {
         // Worker accepted the Task assignment
         self.tm.setTaskStatus(jobId, task.getId(), "assigned")
+        self.sm.addTask(jobId, task)
       }
     }
 

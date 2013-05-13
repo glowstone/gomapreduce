@@ -31,13 +31,13 @@ func cleanup(pxa []*MapReduceNode) {
 	}
 }
 
-func TestBootstrap(t *testing.T) {
-	// Bootstrap
-	bucket := GetBucket()
-	fmt.Println(bucket)
-	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
-	fmt.Println("Bootstrapped!")
-}
+// func TestBootstrap(t *testing.T) {
+// 	// Bootstrap
+// 	bucket := GetBucket()
+// 	fmt.Println(bucket)
+// 	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
+// 	fmt.Println("Bootstrapped!")
+// }
 
 
 func TestBasic(t *testing.T) {
@@ -66,7 +66,11 @@ func TestBasic(t *testing.T) {
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
 	debug(fmt.Sprintf("job_id: %s", job_id))
 
-	time.Sleep(60000 * time.Millisecond)
+
+	for !pxa[0].Status(job_id) { 		// While the job isn't done, keep waiting
+		time.Sleep(500*time.Millisecond)
+	}
+	// time.Sleep(60000 * time.Millisecond)
 		
 	fmt.Printf("Passed...\n")
 }
