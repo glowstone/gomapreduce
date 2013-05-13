@@ -39,7 +39,7 @@ type MapReduceNode struct {
 
   // Last ping times for each other node
   lastPingTimes map[string]time.Time
-  // State ("idle", "dead", etc.) of each other node
+  // State ("alive" or "dead") of each other node
   nodeStates map[string]string
 }
 
@@ -160,8 +160,8 @@ func (self *MapReduceNode) workerRole(task Task) {
 
 func (self *MapReduceNode) tick() {
   //fmt.Println("Tick")
-  //self.sendPings()
-	//self.checkForDisconnectedNodes()
+  self.sendPings()
+	self.checkForDisconnectedNodes()
 }
 
 // Exported RPC functions (internal to mapreduce service)
@@ -319,14 +319,14 @@ func (self *MapReduceNode) sendPings() {
 	for _, node := range self.nodes {
 		if node != self.nodes[self.me]{
 			reply := &PingReply{}
-			call(node, self.netMode, "MapReduceNode.HandlePing", args, reply)
+			go call(node, self.netMode, "MapReduceNode.HandlePing", args, reply)   // TODO is it ok to do this as a go func? It would hang forever if it wasn't a go func and the other node was dead
 		}
 	}
 }
 
 // Ping handler, called via RPC when a node wants to ping this node
 func (self *MapReduceNode) HandlePing(args *PingArgs, reply *PingReply) error {
-	// fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
+	fmt.Printf("Node %d receiving ping from Node %s\n", self.me, args.Me[len(args.Me)-1:])
 
 	self.lastPingTimes[args.Me] = time.Now()
 
@@ -402,7 +402,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   		continue
   	}
   	mr.lastPingTimes[node] = time.Now()
-  	mr.nodeStates[node] = "idle"
+  	mr.nodeStates[node] = "alive"
   }
 
   if rpcs != nil {

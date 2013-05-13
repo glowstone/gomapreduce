@@ -31,13 +31,13 @@ func cleanup(pxa []*MapReduceNode) {
 	}
 }
 
-// func TestBootstrap(t *testing.T) {
-// 	// Bootstrap
-// 	bucket := GetBucket()
-// 	fmt.Println(bucket)
-// 	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
-// 	fmt.Println("Bootstrapped!")
-// }
+func TestBootstrap(t *testing.T) {
+	// Bootstrap
+	bucket := GetBucket()
+	fmt.Println(bucket)
+	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
+	fmt.Println("Bootstrapped!")
+}
 
 
 func TestBasic(t *testing.T) {
@@ -60,13 +60,13 @@ func TestBasic(t *testing.T) {
 
 	mapper := DemoMapper{}
 	reducer := DemoReducer{}
-	config := MakeJobConfig("alice_in_wonderland", "alice_in_wonderland_output", 2, 2, true, "")
-	inputer := MakeS3Inputer("alice_in_wonderland")
-	outputer := MakeS3Outputer("alice_in_wonderland_output")
+	config := MakeJobConfig("small_test", "small_test_output", 2, 2, true, "")
+	inputer := MakeS3Inputer("small_test")
+	outputer := MakeS3Outputer("small_test_output")
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
 	debug(fmt.Sprintf("job_id: %s", job_id))
 
-	time.Sleep(30000 * time.Millisecond)
+	time.Sleep(60000 * time.Millisecond)
 		
 	fmt.Printf("Passed...\n")
 }
@@ -132,3 +132,23 @@ func TestBasic(t *testing.T) {
 
 //   fmt.Printf("Passed...\n")
 // }
+
+func TestPing(t *testing.T) {
+	const nnodes = 2
+	var pxh []string = make([]string, nnodes)         // Create empty slice of host strings
+	var pxa []*MapReduceNode = make([]*MapReduceNode, nnodes) // Create empty slice of MapReduce instances
+	defer cleanup(pxa)
+
+	for i := 0; i < nnodes; i++ {
+		pxh[i] = port("basic", i)
+	}
+	for i := 0; i < nnodes; i++ {
+		pxa[i] = MakeMapReduceNode(pxh, i, nil, "unix")
+	}
+
+
+    pxa[1].dead = true
+    time.Sleep(1500*time.Millisecond)
+
+    fmt.Println("... Test over. Make sure that node 0 marked node 1 as dead!")
+}

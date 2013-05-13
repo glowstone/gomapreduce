@@ -7,7 +7,7 @@ http://research.google.com/archive/mapreduce.html
 */
 
 import (
-	"fmt"      // temporary
+	// "fmt"      // temporary
 )
 
 type Reducer interface {
@@ -35,7 +35,7 @@ func (self DemoReducer) Reduce(key string, data []interface{}, outputer Outputer
 	for _, count := range data {
 		total += count.(int)
 	}
-	result := fmt.Sprintf("%s: %d", key, total)
-	debug("Output: " + result)
+	// result := fmt.Sprintf("%s: %d", key, total)
+	// debug("Output: " + result)
 	outputer.Output(key, total)
 }
