@@ -32,6 +32,7 @@ type MapReduceNode struct {
 	// State for master role
   jm JobManager          // Manages Jobs the node is responsible for as a master.
   tm TaskManager         // Manages Tasks the node is responsible for as a master.
+  sm StatsManager        // Manages Task and Job stats, like how long they take to run
 
 	// State for worker roles
   emittedStorage EmittedStorage    // Storage system for emitted intermediate KVPairs
@@ -68,7 +69,8 @@ func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper,
   job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
   job := makeJob(job_id, mapper, reducer, inputer, outputer)
   self.jm.addJob(job, "starting")
-  self.jobDone[job_id] = false
+  self.jobDone[job_id] = false    // TODO temporary, remove this once the jobManager exists
+  self.sm.addJob(job_id)          // Add the job to the stats manager
 
   debug(fmt.Sprintf("(svr:%d) Start: job_id: %s, job: %v", self.me, job_id, job))
 
@@ -140,7 +142,9 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   }
   fmt.Println("\n\nDONE!\n")
 
-  self.jobDone[jobId] = true
+  self.jobDone[jobId] = true        // TODO temporary, remove once jobManager exists
+  self.sm.jobComplete(jobId)        // Mark the job as complete in the statsManager
+  fmt.Printf("Job %s took %v\n", jobId, self.sm.jobTime(jobId))   // Time the job
   //self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
 
   // // Cleanup
@@ -390,6 +394,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   // Nodes acting as masters manage Jobs and Tasks
   mr.jm = makeJobManager()
   mr.tm = makeTaskManager(len(nodes))
+  mr.sm = makeStatsManager()
 
   // Each node stores emitted intermediate pairs for multiple jobs.
   mr.emittedStorage = makeEmittedStorage()
