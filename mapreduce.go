@@ -140,6 +140,7 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
 
   self.jm.setStatus(jobId, "completed")
   self.sm.jobComplete(jobId)        // Mark the job as complete in the statsManager
+  self.sm.groupTasks(jobId, )
   fmt.Printf("Job %s took %v\n", jobId, self.sm.jobTime(jobId))   // Time the job
   //self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
 
@@ -170,6 +171,7 @@ func (self *MapReduceNode) tick() {
   self.sendPings()
 	self.checkForDisconnectedNodes()
   self.tm.reassignDeadTasks(self.nodes, self.nodeStates)
+  self.sm.profile(self.me)
 }
 
 // Exported RPC functions (internal to mapreduce service)
@@ -296,7 +298,7 @@ func (self *MapReduceNode) assignTasks(jobId string) {
       if ok && reply.OK {
         // Worker accepted the Task assignment
         self.tm.setTaskStatus(jobId, task.getId(), "assigned")
-        self.sm.addTask(jobId, task)
+        self.sm.addTask(jobId, task, worker)
       }
     }
 

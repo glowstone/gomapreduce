@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 	"sync"
+	"runtime"
+	"os"
+	"strconv"
 )
 
 // Keeps track of stats relevant to a job, and the tasks that make up that job
@@ -19,6 +22,7 @@ type JobStats struct {
 // Keeps track of stats relevant to a task
 type TaskStats struct {
 	task Task
+	worker string
 	startTime time.Time
 	finishTime time.Time
 }
@@ -44,8 +48,8 @@ func (self StatsManager) addJob(jobId string) {
 }
 
 // Adds a task to be tracked
-func (self StatsManager) addTask(jobId string, task Task) {
-	taskStats := TaskStats{task: task, startTime: time.Now()}
+func (self StatsManager) addTask(jobId string, task Task, worker string) {
+	taskStats := TaskStats{task: task, startTime: time.Now(), worker: worker}
 	jobStats, present := self.storage[jobId]
 	if !present {
 		fmt.Printf("Job %s doesn't exist! Please add it before adding tasks for it.\n")
@@ -108,4 +112,41 @@ func (self StatsManager) taskTime(jobId string, taskId string) time.Duration {
 		fmt.Printf("Job %s doesn't exist!\n", jobId)
 	}
 	return diff
+}
+
+func (self StatsManager) profile(node int) {
+	stats := runtime.MemStats{}
+	runtime.ReadMemStats(&stats)
+	fmt.Printf("Stats: %d\n", stats.Alloc)
+
+	f, err := os.OpenFile("stats.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Printf("Err: %v\n", err)
+	}
+
+	output := fmt.Sprintf("%d:%d:%s\n", node, time.Now().UnixNano(), strconv.Itoa(int(stats.Alloc)))		// Node:time:memory
+
+	f.WriteString(output)
+}
+
+func (self StatsManager) groupTasks(jobId string) {
+	jobStats, present := self.storage[jobId]
+	if !present {
+		fmt.Printf("Job %s doesn't exist\n")
+		return
+	}
+
+	tasks := make(map[string]int)
+
+	for _, taskStats := range jobStats.tasks {
+		_, present := tasks[taskStats.worker]
+		if present {
+			tasks[taskStats.worker]++
+		} else {
+			tasks[taskStats.worker] = 1
+		}
+		
+	}
+
+	fmt.Printf("Tasks: %v\n", tasks)
 }
