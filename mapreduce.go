@@ -42,9 +42,6 @@ type MapReduceNode struct {
   lastPingTimes map[string]time.Time
   // State ("alive" or "dead") of each other node
   nodeStates map[string]string
-
-  // Temporary (until jobmanager is built)
-  jobDone map[string]bool
 }
 
 
@@ -66,26 +63,23 @@ member of the network but it is totally possible.
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
   reducer Reducer, inputer Inputer, outputer Outputer) string {
 
-  job_id := generateUUID()       // Job identifier created internally, unlike in Paxos
-  job := makeJob(job_id, mapper, reducer, inputer, outputer)
+  jobId := generateUUID()       // Job identifier created internally, unlike in Paxos
+  job := makeJob(jobId, mapper, reducer, inputer, outputer)
   self.jm.addJob(job, "starting")
+  self.sm.addJob(jobId)          // Add the job to the stats manager
 
-  self.jobDone[job_id] = false    // TODO temporary, remove this once the jobManager exists
-  self.sm.addJob(job_id)          // Add the job to the stats manager
-
-  debug(fmt.Sprintf("(svr:%d) Start: job_id: %s, job: %v", self.me, job_id, job))
+  debug(fmt.Sprintf("(svr:%d) Start: jobId: %s, job: %v", self.me, jobId, job))
 
   // Spawn a thread to act as the master
 	go self.masterRole(job, job_config)
 
-  return job_id
+  return jobId
 }
 
 func (self *MapReduceNode) Status(jobId string) bool{
-  //TODO
-  // debug(fmt.Sprintf("Called Status"))
 
-  return self.jobDone[jobId]
+  debug(fmt.Sprintf("(svr:%d) Status: jobId: %s", self.me, jobId))
+  return self.jm.isCompleted(jobId)
 }
 
 
@@ -144,7 +138,7 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   }
   fmt.Println("\n\nDONE!\n")
 
-  self.jobDone[jobId] = true        // TODO temporary, remove once jobManager exists
+  self.jm.setStatus(jobId, "completed")
   self.sm.jobComplete(jobId)        // Mark the job as complete in the statsManager
   fmt.Printf("Job %s took %v\n", jobId, self.sm.jobTime(jobId))   // Time the job
   //self.awaitTasks("all")                          // Wait for MapTasks and ReduceTasks to be completed
@@ -175,6 +169,7 @@ func (self *MapReduceNode) tick() {
   //fmt.Println("Tick")
   self.sendPings()
 	self.checkForDisconnectedNodes()
+  self.tm.reassignDeadTasks(self.nodes, self.nodeStates)
 }
 
 // Exported RPC functions (internal to mapreduce service)
@@ -429,9 +424,6 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
   	mr.lastPingTimes[node] = time.Now()
   	mr.nodeStates[node] = "alive"
   }
-
-  // TODO remove me
-  mr.jobDone = map[string]bool{}
 
   if rpcs != nil {
     rpcs.Register(mr)      // caller created RPC Server

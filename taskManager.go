@@ -5,6 +5,7 @@ package gomapreduce
 import (
 	"math/rand"
 	"sync"
+	"fmt"
 )
 
 // Representation of Tasks maintained at the master node
@@ -153,6 +154,30 @@ not completed.
 */
 func (self *TaskManager) countTasks(jobId string, status string, kind string) int {
 	return len(self.listTasks(jobId, status, kind))
+}
+
+
+
+// The way these methods work needs to be reorganized, representation of liveness 
+// should be an instance parameter with nice methods and autoupdate itself.
+
+func (self *TaskManager) reassignDeadTasks(nodes []string, nodeStates map[string]string) {
+	var workerIndex int
+	for _, taskMap := range self.storage {
+		for _, task := range taskMap {
+			workerIndex = task.workerIndex
+			if workerIndex > -1 {
+				// Horrible failure at error hanlding
+				if nodeStates[nodes[workerIndex]] == "dead" {
+					self.getWorkerIndex(nodes, nodeStates)
+					// newIndex := above line
+					// TODO set new workerIndex atomically with locking
+					// TODO invoke assigner. Consider where that should live.
+				}
+			}
+		}
+	}
+
 }
 
 

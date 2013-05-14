@@ -122,15 +122,18 @@ func (self *JobManager) isCompleted(jobId string) bool {
 	return false
 }
 
-func (self *JobManager) setStatus(jobId string) (string, error) {
+// TODO, error handling
+func (self *JobManager) setStatus(jobId string, status string) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
 	jobState, error := self.getJobState(jobId)
 	if error == nil {
-		return jobState.status, nil
+		jobState.status = status
+		return nil
 	}
-	return "", errors.New("no JobState with given jobId")
+	// TODO Validate the status 
+	return errors.New("no JobState with given jobId")
 }
 
 
