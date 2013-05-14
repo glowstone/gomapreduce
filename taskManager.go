@@ -5,7 +5,6 @@ package gomapreduce
 import (
 	"math/rand"
 	"sync"
-	"fmt"
 )
 
 // Representation of Tasks maintained at the master node
