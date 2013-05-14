@@ -162,3 +162,72 @@ func TestPing(t *testing.T) {
 
     fmt.Println("... Test over. Make sure that node 0 marked node 1 as dead!")
 }
+
+
+func TestJobManager(t *testing.T) {
+
+	fmt.Printf("Test: JobManager Basics ...\n")
+	var jm JobManager
+	var testJob, storedJob Job
+	var jobId, storedStatus string          // TODO add status and iteration
+	var error error
+
+	jm = makeJobManager()
+	jobId = generateUUID()
+	testJob = makeJob(jobId, DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	
+	fmt.Println(jm, testJob)
+	
+	// Test adding a Job
+	error = jm.addJob(testJob, "starting")
+	storedJob = jm.storage[jobId].job
+	storedStatus = jm.storage[jobId].status
+	if error != nil || storedJob != testJob || storedStatus != "starting" {
+		t.Fatalf("Failed to addJob")
+	}
+
+	// Test that adding a Job with the same jobId fails
+	error = jm.addJob(testJob, "starting")
+	if error == nil {
+		t.Fatalf("addJob allows Job with a jonId matching an existing JobState to be added.")
+	}
+
+	// Test that adding a Job with invalid status fails
+	// testJob = makeJob(generateUUID(), DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	// error = jm.addJob(testJob, "invalid")
+	// if error == nil {
+	// 	t.Fatalf("addJob allows a Job to be added with an invalid status")
+	// }
+
+	// Test removing a Job
+	jm.removeJob(jobId)
+	if jm.storage[jobId] != nil {
+		fmt.Println(jm.storage[jobId])
+		t.Fatalf("failed to removeJob")
+	}
+
+	jobId = generateUUID()
+	testJob = makeJob(jobId, DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	jm.addJob(testJob, "starting")
+
+	// Test getting Job
+	storedJob, _ = jm.getJob(jobId)
+	if storedJob != testJob {
+		t.Fatalf("getJob failed to return expected Job")
+	}
+
+	// Test getting status
+	storedStatus, _ = jm.getStatus(jobId)
+	if storedStatus != "starting" {
+		t.Fatalf("getStatus failed to return expected status")
+	}
+
+	// Test setting status
+
+
+	// Test setting invalid status
+
+	// Test isCompleted
+
+
+}

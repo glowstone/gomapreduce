@@ -7,6 +7,8 @@ import (
 	"errors"
 )
 
+var JobStatuses = [3]string{"starting", "working", "completed"}
+
 // Representation fo Jobs maintained at the master node
 type JobState struct {
 	job Job                // The Job being managed
@@ -57,11 +59,37 @@ func (self *JobManager) addJob(job Job, status string) error {
 	return nil
 }
 
+/*
+Returns a copy of the Job associated with the given jobId string. Returns an empty
+Job and an error if no Job is found with the given jobId.
+*/
+func (self *JobManager) getJob(jobId string) (Job, error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	jobState, error := self.getJobState(jobId)
+	if error == nil {
+		return jobState.job, nil
+	}
+	return Job{}, errors.New("no JobState with given jobId")
+}
 
 /*
-Internal method for obtaining a pointer to the JobState(mutable) associated with a 
+Removes the JobState associated with the given jobId from the JobManager storage.
+If there is no entry corresponding to the jobId, no action is performed.
+*/
+func (self *JobManager) removeJob(jobId string) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	delete(self.storage, jobId)
+}
+
+
+/*
+INTERNAL method for obtaining a pointer to the JobState(mutable) associated with a 
 jobId. Caller responsible for obtaining a lock. If no JobState is associated with
-the given jobId, 
+the given jobId, a pointer to an empty JobState and an error are returned.
 */
 func (self *JobManager) getJobState(jobId string) (*JobState, error)  {
 	if _, present := self.storage[jobId]; !present {
@@ -69,6 +97,58 @@ func (self *JobManager) getJobState(jobId string) (*JobState, error)  {
 	}
 	return self.storage[jobId], nil
 }
+
+
+
+func (self *JobManager) getStatus(jobId string) (string, error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	jobState, error := self.getJobState(jobId)
+	if error == nil {
+		return jobState.status, nil
+	}
+	return "", errors.New("no JobState with given jobId")
+}
+
+func (self *JobManager) isCompleted(jobId string) bool {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	jobState, error := self.getJobState(jobId)
+	if error == nil && jobState.status == "completed" {
+		return true
+	}
+	return false
+}
+
+func (self *JobManager) setStatus(jobId string) (string, error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	jobState, error := self.getJobState(jobId)
+	if error == nil {
+		return jobState.status, nil
+	}
+	return "", errors.New("no JobState with given jobId")
+}
+
+
+
+
+
+// jobStatus and JobManager Helpers 
+
+func validJobStatus(status string) bool {
+	for _, validStatus := range JobStatuses {
+		if status == validStatus {
+			return true
+		} 
+	}
+	return false
+}
+
+
 
 
 

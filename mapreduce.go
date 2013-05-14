@@ -66,9 +66,10 @@ member of the network but it is totally possible.
 func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
   reducer Reducer, inputer Inputer, outputer Outputer) string {
 
-  job_id := generate_uuid()       // Job identifier created internally, unlike in Paxos
+  job_id := generateUUID()       // Job identifier created internally, unlike in Paxos
   job := makeJob(job_id, mapper, reducer, inputer, outputer)
   self.jm.addJob(job, "starting")
+
   self.jobDone[job_id] = false    // TODO temporary, remove this once the jobManager exists
   self.sm.addJob(job_id)          // Add the job to the stats manager
 
@@ -83,6 +84,7 @@ func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper,
 func (self *MapReduceNode) Status(jobId string) bool{
   //TODO
   // debug(fmt.Sprintf("Called Status"))
+
   return self.jobDone[jobId]
 }
 
@@ -246,7 +248,7 @@ func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
 
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
-    taskId := generate_uuid()
+    taskId := generateUUID()
     maptask := makeMapTask(taskId, key, job.getId(), config, job.mapper, job.inputer, self.nodes[self.me], self.netMode)
     mapTasks = append(mapTasks, maptask)
 	}
@@ -263,7 +265,7 @@ func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTa
   var reduceTasks  []ReduceTask
 
   for partitionNumber :=0 ; partitionNumber < config.R ; partitionNumber ++ {
-    taskId := generate_uuid()
+    taskId := generateUUID()
     // TODO: pass the EmittedReader wrapper instead of self.nodes
     reduceTask := makeReduceTask(taskId, partitionNumber, job.getId(), config, job.reducer, job.outputer, self.nodes[self.me], self.netMode)
     reduceTasks = append(reduceTasks, reduceTask)

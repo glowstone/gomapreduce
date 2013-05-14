@@ -4,7 +4,7 @@ package gomapreduce
 import (
 	"strconv"
 	"strings"
-	"fmt"
+	//"fmt"
 )
 
 type Inputer interface {
@@ -21,7 +21,7 @@ func MakeS3Inputer (inputFolder string) S3Inputer {
 	if !strings.HasSuffix(inputFolder, "/") { 	// Make sure that the folder has a trailing slash
 		inputFolder += "/"
 	}
-	fmt.Printf("Folder: %s\n", inputFolder)
+	//fmt.Printf("Folder: %s\n", inputFolder)
 	accessor := S3Inputer{Folder: inputFolder}
 
 	return accessor

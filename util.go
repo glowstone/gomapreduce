@@ -19,6 +19,6 @@ TODO: Does not actually return a UUID according to standards. Just a random
 int which suffices for now.
 http://tools.ietf.org/html/rfc4122
 */
-func generate_uuid() string {
+func generateUUID() string {
   return strconv.Itoa(rand.Int())
 }
