@@ -15,7 +15,6 @@ import (
 	"math/rand"
 	"time"
 	"encoding/gob"
-  "runtime"
 )
 
 type MapReduceNode struct {
@@ -364,15 +363,6 @@ func (self *MapReduceNode) checkForDisconnectedNodes() {
 }
 
 
-// Handle test RPC RPC calls.
-// func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
-//   fmt.Println("Received TestRPC", args.Number)
-//   result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
-//   fmt.Println(result)
-//   //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
-//   reply.Err = OK
-//   return nil
-// }
 
 
 //
@@ -393,7 +383,6 @@ func (self *MapReduceNode) Kill() {
 // this node's port is nodes[me]
 
 func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode {
-  runtime.GOMAXPROCS(4)
   // Initialize a MapReduceNode
   mr := &MapReduceNode{}
   mr.nodes = nodes    
@@ -445,13 +434,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
     gob.Register(KVPair{})
-    gob.Register(JobConfig{})
-
-    // Client specified objects
-    gob.Register(DemoMapper{})
-    gob.Register(DemoReducer{})
-    gob.Register(S3Inputer{})
-    gob.Register(S3Outputer{})
+    gob.Register(JobConfig{})    
 
     // Prepare node to receive connections
 

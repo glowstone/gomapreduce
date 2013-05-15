@@ -7,7 +7,7 @@ http://research.google.com/archive/mapreduce.html
 */
 
 import (
-	// "fmt"      // temporary
+
 )
 
 type Reducer interface {
@@ -21,8 +21,12 @@ method is executed in a ReduceTask, which is responsible for aggregating the wor
 counts of all words (words used as intermediate keys) which hash to the same value
 modulo R. 
 */
-type DemoReducer struct {
+type DemoReducer struct {}
 
+// DemoReducer Constructor
+func makeDemoReducer() *DemoReducer {
+	dr := DemoReducer{}
+	return &dr
 }
 
 /*

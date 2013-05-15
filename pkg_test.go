@@ -35,7 +35,7 @@ func cleanup(pxa []*MapReduceNode) {
 // 	// Bootstrap
 // 	bucket := GetBucket()
 // 	fmt.Println(bucket)
-// 	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
+// 	SplitFileIntoChunks("output.txt", bucket, "small_test", 100000) // Split the file into chunks of 1 byte each and write them to s3
 // 	fmt.Println("Bootstrapped!")
 // }
 
@@ -43,6 +43,9 @@ func cleanup(pxa []*MapReduceNode) {
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously
 	gob.Register(DemoMapper{})
+	gob.Register(DemoReducer{})
+	gob.Register(S3Inputer{})
+    gob.Register(S3Outputer{})
 
 	const nnodes = 5
 	var pxh []string = make([]string, nnodes)         // Create empty slice of host strings
@@ -58,8 +61,8 @@ func TestBasic(t *testing.T) {
 	fmt.Println(pxa)
 	fmt.Println(pxh)
 
-	mapper := DemoMapper{}
-	reducer := DemoReducer{}
+	mapper := makeDemoMapper()
+	reducer := makeDemoReducer()
 	config := MakeJobConfig("small_test", "small_test_output", 2, 2, true, "")
 	inputer := MakeS3Inputer("small_test")
 	outputer := MakeS3Outputer("small_test_output")
@@ -174,7 +177,7 @@ func TestJobManager(t *testing.T) {
 
 	jm = makeJobManager()
 	jobId = generateUUID()
-	testJob = makeJob(jobId, DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
 	
 	fmt.Println(jm, testJob)
 	
@@ -193,7 +196,7 @@ func TestJobManager(t *testing.T) {
 	}
 
 	// Test that adding a Job with invalid status fails
-	// testJob = makeJob(generateUUID(), DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	// testJob = makeJob(generateUUID(), makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
 	// error = jm.addJob(testJob, "invalid")
 	// if error == nil {
 	// 	t.Fatalf("addJob allows a Job to be added with an invalid status")
@@ -207,7 +210,7 @@ func TestJobManager(t *testing.T) {
 	}
 
 	jobId = generateUUID()
-	testJob = makeJob(jobId, DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
 	jm.addJob(testJob, "starting")
 
 	// Test getting Job
