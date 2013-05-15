@@ -129,17 +129,19 @@ the given type may be 'map', 'reduce', or 'all'.
 func (self *TaskManager) listTasks(jobId string, status string, kind string) []string {
 	var taskIds []string
 	for _, taskState := range self.storage[jobId] {
-		if taskState.status == "all" {
-			if kind == "all" {
+		if kind == "all" {
+			if status == "all" {
 				taskIds = append(taskIds, taskState.task.getId())
-			} else {
-				if taskState.task.getKind() == kind {
+			} else if status ==  taskState.status {
+				taskIds = append(taskIds, taskState.task.getId())
+			}
+		} else {
+			if taskState.task.getKind() == kind {
+				if taskState.status == status {
+					taskIds = append(taskIds, taskState.task.getId())
+				} else if status == "all" {
 					taskIds = append(taskIds, taskState.task.getId())
 				}
-			}	
-		} else {
-			if taskState.status == status {
-				taskIds = append(taskIds, taskState.task.getId())
 			}
 		}
 	}

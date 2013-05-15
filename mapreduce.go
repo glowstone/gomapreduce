@@ -171,7 +171,7 @@ func (self *MapReduceNode) tick() {
   self.sendPings()
 	self.checkForDisconnectedNodes()
   self.tm.reassignDeadTasks(self.nodes, self.nodeStates)
-  self.sm.profile(self.me)
+  // self.sm.profile(self.tm, self.me)
 }
 
 // Exported RPC functions (internal to mapreduce service)
@@ -317,14 +317,14 @@ future and there may not have ever been an instant where all Tasks had 'y' statu
 func (self *MapReduceNode) awaitTasks(jobId string, status string, kind string) {
   var done bool
 
-  taskIds := self.tm.listTasks(jobId, "all", kind)   // Consider only the specified kind of Tasks
+  taskIds := self.tm.listTasks(jobId, status, kind)   // Consider only the specified kind of Tasks
   fmt.Println(taskIds)
   for !done {
     done = true
 
     for _, taskId := range taskIds {
       taskState := self.tm.getTaskStateCopy(jobId, taskId)
-      fmt.Println(taskState)
+      // fmt.Println(taskState)
       if taskState.status != status {
         done = false           // Continue await if any Task has not reached desired status
       }
