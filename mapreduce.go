@@ -15,7 +15,6 @@ import (
 	"math/rand"
 	"time"
 	"encoding/gob"
-  "runtime"
 )
 
 type MapReduceNode struct {
@@ -48,38 +47,44 @@ type MapReduceNode struct {
 /*
 Client would like to start a Job instance which is composed of Task 
 instances (MapTasks or Reduce Tasks). Client passes a JobConfig instance along
-with his implemented Mapper, Reducer, InputAccessor, and OutputAccessor.
-Spawns a master_role thread to perform the requested Job by breaking it into 
-tasks that are allocated to workers. Returns the int job_id assigned to the 
+with his implemented Mapper, Reducer, Inputer, and Outputer. Spawns a 
+masterRole thread to perform the requested Job by breaking it into 
+Tasks that are allocated to workers. Returns the int jobId assigned to the 
 started Job.
 Any configuration settings not for a particular job should be read from the 
 environment.
-
-Aside: Currently, this is called from a client which has a local MapReduceNode running
-at it, but a wrapper that allows start to be called remotely via RPC could be 
-created. We don't currently have any scenarios where the client is not also a 
-member of the network but it is totally possible.
 */
-func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
+func (self *MapReduceNode) Start(jobConfig JobConfig, mapper Mapper, 
   reducer Reducer, inputer Inputer, outputer Outputer) string {
 
-  jobId := generateUUID()       // Job identifier created internally, unlike in Paxos
-  job := makeJob(jobId, mapper, reducer, inputer, outputer)
+  jobId := generateUUID()             // Job identifier created internally
+  job := makeJob(jobId, mapper, reducer, inputer, outputer, jobConfig)
   self.jm.addJob(job, "starting")
-  self.sm.addJob(jobId)          // Add the job to the stats manager
-
-  debug(fmt.Sprintf("(svr:%d) Start: jobId: %s, job: %v", self.me, jobId, job))
-
+  self.sm.addJob(jobId)
+  debug(fmt.Sprintf("(svr:%d) Start: jobId: %s", self.me, jobId))
+  
   // Spawn a thread to act as the master
-	go self.masterRole(job, job_config)
-
+	go self.masterRole(jobId)
   return jobId
 }
 
-func (self *MapReduceNode) Status(jobId string) bool{
-
+/*
+Client application checks whether the Job with jobId has been comeplted.
+*/
+func (self *MapReduceNode) Status(jobId string) bool {
   debug(fmt.Sprintf("(svr:%d) Status: jobId: %s", self.me, jobId))
   return self.jm.isCompleted(jobId)
+}
+
+/*
+Frees memory associated with performing the Job with the specified jobId.
+Removes the Job from the Job Manager and all Tasks for the Job from the 
+Task Manager(TODO). Notifies workers that intermediate data can be released
+and execution on the Job's Task can be halted (TODO).
+*/
+func (self *MapReduceNode) Done(jobId string) {
+  self.jm.removeJob(jobId)
+  return
 }
 
 
@@ -89,12 +94,12 @@ allocating the Tasks to workers, and monitors progress on the Job until it is
 complete.
 The method used by the master node to start the entire mapreduce operation
 */
-func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
-	debug(fmt.Sprintf("(svr:%d) master_role: job", self.me))
-  jobId := job.getId()
+func (self *MapReduceNode) masterRole(jobId string) {
+	debug(fmt.Sprintf("(svr:%d) master_role: jobId %d", self.me, jobId))
+
   // MapTasks
   // Split input data into M components. Right now, input is prechunked so do nothing.
-  maptasks := self.makeMapTasks(job, config)    // Create M MapTasks
+  maptasks := self.makeMapTasks(jobId)          // Create M MapTasks
   self.tm.addBulkMapTasks(jobId, maptasks)      // Add tasks to TaskManager
   self.assignTasks(jobId)                       // Assign unassigned MapTasks to workers
   self.awaitTasks(jobId, "assigned", "all")     // Wait for MapTasks to be completed
@@ -122,8 +127,8 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   }
 
   // ReduceTasks (+ failed MapTasks )
-  reduceTasks := self.makeReduceTasks(job, config)
-  self.tm.addBulkReduceTasks(job.getId(), reduceTasks)
+  reduceTasks := self.makeReduceTasks(jobId)
+  self.tm.addBulkReduceTasks(jobId, reduceTasks)
   self.assignTasks(jobId)
 
   done = false
@@ -240,9 +245,11 @@ func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) err
 Gets all the keys that need to be mapped via MapTasks for the job and constructs 
 MapTask instances. Returns a slice of MapTasks.
 */
-func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
+func (self *MapReduceNode) makeMapTasks(jobId string) []MapTask {
   var mapTasks []MapTask
 
+  job, _ := self.jm.getJob(jobId)
+  config, _ := self.jm.getConfig(jobId)
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     taskId := generateUUID()
@@ -258,9 +265,11 @@ a partition number 'partitionNumber'is responsible for executing the 'reduce'
 method on for all intermediate values where hash(key)%R equals the 'partitionNumber'.
 Returns a slice of ReduceTasks.
 */
-func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTask {
+func (self *MapReduceNode) makeReduceTasks(jobId string) []ReduceTask {
   var reduceTasks  []ReduceTask
 
+  job, _ := self.jm.getJob(jobId)
+  config, _ := self.jm.getConfig(jobId)
   for partitionNumber :=0 ; partitionNumber < config.R ; partitionNumber ++ {
     taskId := generateUUID()
     // TODO: pass the EmittedReader wrapper instead of self.nodes
@@ -366,15 +375,6 @@ func (self *MapReduceNode) checkForDisconnectedNodes() {
 }
 
 
-// Handle test RPC RPC calls.
-// func (self *MapReduceNode) TestRPC(args *TestRPCArgs, reply *TestRPCReply) error {
-//   fmt.Println("Received TestRPC", args.Number)
-//   result := args.Mapper.Map("This is a sample string sample string is is")       // perform work on a random input
-//   fmt.Println(result)
-//   //fmt.Printf("Task id: %d\n", args.Mapper.get_id())
-//   reply.Err = OK
-//   return nil
-// }
 
 
 //
@@ -395,7 +395,6 @@ func (self *MapReduceNode) Kill() {
 // this node's port is nodes[me]
 
 func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *MapReduceNode {
-  runtime.GOMAXPROCS(4)
   // Initialize a MapReduceNode
   mr := &MapReduceNode{}
   mr.nodes = nodes    
@@ -447,13 +446,7 @@ func MakeMapReduceNode(nodes []string, me int, rpcs *rpc.Server, mode string) *M
     gob.Register(MapTask{})
     gob.Register(ReduceTask{})
     gob.Register(KVPair{})
-    gob.Register(JobConfig{})
-
-    // Client specified objects
-    gob.Register(DemoMapper{})
-    gob.Register(DemoReducer{})
-    gob.Register(S3Inputer{})
-    gob.Register(S3Outputer{})
+    gob.Register(JobConfig{})    
 
     // Prepare node to receive connections
 

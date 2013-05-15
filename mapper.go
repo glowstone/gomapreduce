@@ -25,6 +25,12 @@ Demo Mapper implementation. Used to count the number of occurances of different
 */
 type DemoMapper struct {}
 
+// DemoMapper Constructor
+func makeDemoMapper() *DemoMapper {
+	dm := DemoMapper{}
+	return &dm
+}
+
 /*
 Counts the number of occurances of each word in the given text value and emits
 intermediate pairs <word, word(count)> after processing the text.

@@ -35,7 +35,7 @@ func cleanup(pxa []*MapReduceNode) {
 // 	// Bootstrap
 // 	bucket := GetBucket()
 // 	fmt.Println(bucket)
-// 	SplitFileIntoChunks("output.txt", bucket, "alice_in_wonderland", 100000) // Split the file into chunks of 1 byte each and write them to s3
+// 	SplitFileIntoChunks("output.txt", bucket, "small_test", 100000) // Split the file into chunks of 1 byte each and write them to s3
 // 	fmt.Println("Bootstrapped!")
 // }
 
@@ -43,6 +43,9 @@ func cleanup(pxa []*MapReduceNode) {
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)      // sets max number of CPUs used simultaneously
 	gob.Register(DemoMapper{})
+	gob.Register(DemoReducer{})
+	gob.Register(S3Inputer{})
+    gob.Register(S3Outputer{})
 
 	const nnodes = 5
 	var pxh []string = make([]string, nnodes)         // Create empty slice of host strings
@@ -58,9 +61,9 @@ func TestBasic(t *testing.T) {
 	fmt.Println(pxa)
 	fmt.Println(pxh)
 
-	mapper := DemoMapper{}
-	reducer := DemoReducer{}
-	config := MakeJobConfig("small_test", "small_test_output", 2, 10, true, "")
+	mapper := makeDemoMapper()
+	reducer := makeDemoReducer()
+	config := MakeJobConfig("small_test", "small_test_output", 2, 2, true, "")
 	inputer := MakeS3Inputer("small_test")
 	outputer := MakeS3Outputer("small_test_output")
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
@@ -169,13 +172,14 @@ func TestJobManager(t *testing.T) {
 	fmt.Printf("Test: JobManager Basics ...\n")
 	var jm JobManager
 	var testJob, storedJob Job
-	var jobId, storedStatus string          // TODO add status and iteration
+	var testConfig, storedConfig JobConfig
+	var jobId, storedStatus string
 	var error error
 
 	jm = makeJobManager()
 	jobId = generateUUID()
-	testJob = makeJob(jobId, DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
-	
+	testConfig = MakeJobConfig("testIn", "testOut", 3, 3, false, "")
+	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"), testConfig)
 	fmt.Println(jm, testJob)
 	
 	// Test adding a Job
@@ -193,11 +197,11 @@ func TestJobManager(t *testing.T) {
 	}
 
 	// Test that adding a Job with invalid status fails
-	// testJob = makeJob(generateUUID(), DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
-	// error = jm.addJob(testJob, "invalid")
-	// if error == nil {
-	// 	t.Fatalf("addJob allows a Job to be added with an invalid status")
-	// }
+	testJob = makeJob(generateUUID(), makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"), testConfig)
+	error = jm.addJob(testJob, "invalid")
+	if error == nil {
+		t.Fatalf("addJob allows a Job to be added with an invalid status")
+	}
 
 	// Test removing a Job
 	jm.removeJob(jobId)
@@ -207,7 +211,7 @@ func TestJobManager(t *testing.T) {
 	}
 
 	jobId = generateUUID()
-	testJob = makeJob(jobId, DemoMapper{}, DemoReducer{}, MakeS3Inputer("test"), MakeS3Outputer("test"))
+	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"), testConfig)
 	jm.addJob(testJob, "starting")
 
 	// Test getting Job
@@ -223,11 +227,36 @@ func TestJobManager(t *testing.T) {
 	}
 
 	// Test setting status
-
-
-	// Test setting invalid status
+	jm.setStatus(jobId, "working")
+	storedStatus, _ = jm.getStatus(jobId)
+	if storedStatus != "working" {
+		t.Fatalf("setStatus fails to set the correct status")
+	}
+	jm.setStatus(jobId, "completed")
+	storedStatus, _ = jm.getStatus(jobId)
+	if storedStatus != "completed" {
+		t.Fatalf("setStatus fails to set the correct status")
+	}
 
 	// Test isCompleted
+	if !jm.isCompleted(jobId) {
+		t.Fatalf("isCompleted returns false for a Job that should be completed")
+	}
+	jm.setStatus(jobId, "starting")
+	if jm.isCompleted(jobId) {
+		t.Fatalf("isCompleted returns true for a Job that is not completed")
+	}
 
+	// Test that setting invalid status fails
+	error = jm.setStatus(jobId, "invalid")
+	if error == nil {
+		t.Fatalf("setStatus with invalid status should return a non-nil error")
+	}
+
+	// Test that getConfig returns the JobConfig for the Job
+	storedConfig, error = jm.getConfig(jobId)
+	if error != nil || storedConfig != testConfig {
+		t.Fatalf("getConfig did not return the expected JobConfig struct")
+	}
 
 }
