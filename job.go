@@ -9,18 +9,26 @@ type Job struct{
 	reducer Reducer            // reducer to be used for this Job
 	inputer Inputer            // Input data reader
 	outputer Outputer          // Output data writer
+	jobConfig JobConfig        // Configuration for the Job
 }
 
 func makeJob(jobId string, mapper Mapper, reducer Reducer, inputer Inputer, 
-	outputer Outputer) Job {
+	outputer Outputer, jobConfig JobConfig) Job {
 	return Job{jobId: jobId,    
              mapper: mapper,
              reducer: reducer,
              inputer: inputer,
              outputer: outputer,
+             jobConfig: jobConfig,
             }
 }
 
+// Get jobId
 func (self *Job) getId() string {
 	return self.jobId
+}
+
+// Get jobConfig
+func (self *Job) getConfig() JobConfig {
+	return self.jobConfig
 }

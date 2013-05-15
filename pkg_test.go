@@ -172,13 +172,14 @@ func TestJobManager(t *testing.T) {
 	fmt.Printf("Test: JobManager Basics ...\n")
 	var jm JobManager
 	var testJob, storedJob Job
-	var jobId, storedStatus string          // TODO add status and iteration
+	var testConfig, storedConfig JobConfig
+	var jobId, storedStatus string
 	var error error
 
 	jm = makeJobManager()
 	jobId = generateUUID()
-	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
-	
+	testConfig = MakeJobConfig("testIn", "testOut", 3, 3, false, "")
+	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"), testConfig)
 	fmt.Println(jm, testJob)
 	
 	// Test adding a Job
@@ -196,7 +197,7 @@ func TestJobManager(t *testing.T) {
 	}
 
 	// Test that adding a Job with invalid status fails
-	testJob = makeJob(generateUUID(), makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
+	testJob = makeJob(generateUUID(), makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"), testConfig)
 	error = jm.addJob(testJob, "invalid")
 	if error == nil {
 		t.Fatalf("addJob allows a Job to be added with an invalid status")
@@ -210,7 +211,7 @@ func TestJobManager(t *testing.T) {
 	}
 
 	jobId = generateUUID()
-	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
+	testJob = makeJob(jobId, makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"), testConfig)
 	jm.addJob(testJob, "starting")
 
 	// Test getting Job
@@ -251,4 +252,11 @@ func TestJobManager(t *testing.T) {
 	if error == nil {
 		t.Fatalf("setStatus with invalid status should return a non-nil error")
 	}
+
+	// Test that getConfig returns the JobConfig for the Job
+	storedConfig, error = jm.getConfig(jobId)
+	if error != nil || storedConfig != testConfig {
+		t.Fatalf("getConfig did not return the expected JobConfig struct")
+	}
+
 }

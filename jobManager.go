@@ -13,7 +13,6 @@ var JOB_STATUSES = [3]string{"starting", "working", "completed"}
 // Representation fo Jobs maintained at the master node
 type JobState struct {
 	job Job                // The Job being managed
-	//config JobConfig       // The JobConfig for the Job
 	status string          // "starting", "working", "completed" 
 }
 
@@ -41,10 +40,10 @@ func makeJobManager() JobManager {
 }
 
 /*
-Creates an internal JobState representation containing the passed Job and status
-and stores it in the JobManager internal storage keyed by jobId. If a Job with the
-same jobId is already stored or the JobState cannot be created (invalid status) 
-the returned error will be non-nil.
+Creates an internal JobState representation containing the passed Job and status 
+and stores it as JobState in internal storage keyed by jobId. If a Job with the 
+same jobId is already stored or the JobState cannot be created (invalid 
+status) the returned error will be non-nil.
 */
 func (self *JobManager) addJob(job Job, status string) error {
 	self.mu.Lock()
@@ -145,6 +144,21 @@ func (self *JobManager) isCompleted(jobId string) bool {
 		return true
 	}
 	return false
+}
+
+/*
+Returns a copy of the JobConfig for the Job associated with the given jobId string. 
+Returns an empty JobConfig and an error if no Job is found with the given jobId.
+*/
+func (self *JobManager) getConfig(jobId string) (JobConfig, error) {
+	self.mu.Lock()
+	defer self.mu.Unlock()
+
+	jobState, error := self.getJobState(jobId)
+	if error == nil {
+		return jobState.job.getConfig(), nil
+	}
+	return JobConfig{}, errors.New("no JobState with given jobId")
 }
 
 

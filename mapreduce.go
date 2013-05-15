@@ -58,14 +58,13 @@ func (self *MapReduceNode) Start(jobConfig JobConfig, mapper Mapper,
   reducer Reducer, inputer Inputer, outputer Outputer) string {
 
   jobId := generateUUID()             // Job identifier created internally
-  job := makeJob(jobId, mapper, reducer, inputer, outputer)
+  job := makeJob(jobId, mapper, reducer, inputer, outputer, jobConfig)
   self.jm.addJob(job, "starting")
   self.sm.addJob(jobId)
   debug(fmt.Sprintf("(svr:%d) Start: jobId: %s", self.me, jobId))
   
   // Spawn a thread to act as the master
-	go self.masterRole(job, jobConfig)
-
+	go self.masterRole(jobId)
   return jobId
 }
 
@@ -95,12 +94,12 @@ allocating the Tasks to workers, and monitors progress on the Job until it is
 complete.
 The method used by the master node to start the entire mapreduce operation
 */
-func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
-	debug(fmt.Sprintf("(svr:%d) master_role: job", self.me))
-  jobId := job.getId()
+func (self *MapReduceNode) masterRole(jobId string) {
+	debug(fmt.Sprintf("(svr:%d) master_role: jobId %d", self.me, jobId))
+
   // MapTasks
   // Split input data into M components. Right now, input is prechunked so do nothing.
-  maptasks := self.makeMapTasks(job, config)    // Create M MapTasks
+  maptasks := self.makeMapTasks(jobId)          // Create M MapTasks
   self.tm.addBulkMapTasks(jobId, maptasks)      // Add tasks to TaskManager
   self.assignTasks(jobId)                       // Assign unassigned MapTasks to workers
   self.awaitTasks(jobId, "assigned", "all")     // Wait for MapTasks to be completed
@@ -128,8 +127,8 @@ func (self *MapReduceNode) masterRole(job Job, config JobConfig) {
   }
 
   // ReduceTasks (+ failed MapTasks )
-  reduceTasks := self.makeReduceTasks(job, config)
-  self.tm.addBulkReduceTasks(job.getId(), reduceTasks)
+  reduceTasks := self.makeReduceTasks(jobId)
+  self.tm.addBulkReduceTasks(jobId, reduceTasks)
   self.assignTasks(jobId)
 
   done = false
@@ -244,9 +243,11 @@ func (self *MapReduceNode) Get(args *GetEmittedArgs, reply *GetEmittedReply) err
 Gets all the keys that need to be mapped via MapTasks for the job and constructs 
 MapTask instances. Returns a slice of MapTasks.
 */
-func (self *MapReduceNode) makeMapTasks(job Job, config JobConfig) []MapTask {
+func (self *MapReduceNode) makeMapTasks(jobId string) []MapTask {
   var mapTasks []MapTask
 
+  job, _ := self.jm.getJob(jobId)
+  config, _ := self.jm.getConfig(jobId)
   // Assumes the Job input is prechunked
 	for _, key := range job.inputer.ListKeys() {
     taskId := generateUUID()
@@ -262,9 +263,11 @@ a partition number 'partitionNumber'is responsible for executing the 'reduce'
 method on for all intermediate values where hash(key)%R equals the 'partitionNumber'.
 Returns a slice of ReduceTasks.
 */
-func (self *MapReduceNode) makeReduceTasks(job Job, config JobConfig) []ReduceTask {
+func (self *MapReduceNode) makeReduceTasks(jobId string) []ReduceTask {
   var reduceTasks  []ReduceTask
 
+  job, _ := self.jm.getJob(jobId)
+  config, _ := self.jm.getConfig(jobId)
   for partitionNumber :=0 ; partitionNumber < config.R ; partitionNumber ++ {
     taskId := generateUUID()
     // TODO: pass the EmittedReader wrapper instead of self.nodes
