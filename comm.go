@@ -57,7 +57,7 @@ type GetEmittedReply struct {
 const PingInterval = time.Millisecond * 100
 
 // A node will declare another node dead if it hasn't heard from it in this many PingIntervals
-const DeadPings = 5
+const DeadPings = 10
 
 type PingArgs struct {
   Me string     // "host:port"

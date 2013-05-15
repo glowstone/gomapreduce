@@ -37,7 +37,7 @@ func (self *EmittedStorage) putEmitted(jobId string, jobConfig JobConfig, pair K
 	defer self.mu.Unlock()
 
 	// jobConfig.R now available
-	partitionNumber := int(adler32.Checksum([]byte(pair.Key)) % uint32(2))		// TODO Mod R
+	partitionNumber := int(adler32.Checksum([]byte(pair.Key)) % uint32(jobConfig.R))		// TODO Mod R
 
 	if _, present := self.storage[jobId]; !present {
 		// Create string -> []KVPair map for the jobId

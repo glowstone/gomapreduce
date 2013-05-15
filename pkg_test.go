@@ -60,7 +60,7 @@ func TestBasic(t *testing.T) {
 
 	mapper := DemoMapper{}
 	reducer := DemoReducer{}
-	config := MakeJobConfig("small_test", "small_test_output", 2, 2, true, "")
+	config := MakeJobConfig("small_test", "small_test_output", 2, 10, true, "")
 	inputer := MakeS3Inputer("small_test")
 	outputer := MakeS3Outputer("small_test_output")
 	job_id := pxa[0].Start(config, mapper, reducer, inputer, outputer)
@@ -152,7 +152,7 @@ func TestPing(t *testing.T) {
 
 	// Mark node 1 as dead, then wait a while, and make sure node 0 marked it as dead
     pxa[1].dead = true
-    time.Sleep(1500*time.Millisecond)
+    time.Sleep(2500*time.Millisecond)
 
     // Now when we try to get the index for a live node, it should return 0 instead of 1
     index := pxa[0].tm.getWorkerIndex(pxa[0].nodes, pxa[0].nodeStates)
