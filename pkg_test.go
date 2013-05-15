@@ -196,11 +196,11 @@ func TestJobManager(t *testing.T) {
 	}
 
 	// Test that adding a Job with invalid status fails
-	// testJob = makeJob(generateUUID(), makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
-	// error = jm.addJob(testJob, "invalid")
-	// if error == nil {
-	// 	t.Fatalf("addJob allows a Job to be added with an invalid status")
-	// }
+	testJob = makeJob(generateUUID(), makeDemoMapper(), makeDemoReducer(), MakeS3Inputer("test"), MakeS3Outputer("test"))
+	error = jm.addJob(testJob, "invalid")
+	if error == nil {
+		t.Fatalf("addJob allows a Job to be added with an invalid status")
+	}
 
 	// Test removing a Job
 	jm.removeJob(jobId)
@@ -226,11 +226,29 @@ func TestJobManager(t *testing.T) {
 	}
 
 	// Test setting status
-
-
-	// Test setting invalid status
+	jm.setStatus(jobId, "working")
+	storedStatus, _ = jm.getStatus(jobId)
+	if storedStatus != "working" {
+		t.Fatalf("setStatus fails to set the correct status")
+	}
+	jm.setStatus(jobId, "completed")
+	storedStatus, _ = jm.getStatus(jobId)
+	if storedStatus != "completed" {
+		t.Fatalf("setStatus fails to set the correct status")
+	}
 
 	// Test isCompleted
+	if !jm.isCompleted(jobId) {
+		t.Fatalf("isCompleted returns false for a Job that should be completed")
+	}
+	jm.setStatus(jobId, "starting")
+	if jm.isCompleted(jobId) {
+		t.Fatalf("isCompleted returns true for a Job that is not completed")
+	}
 
-
+	// Test that setting invalid status fails
+	error = jm.setStatus(jobId, "invalid")
+	if error == nil {
+		t.Fatalf("setStatus with invalid status should return a non-nil error")
+	}
 }

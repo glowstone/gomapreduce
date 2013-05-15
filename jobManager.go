@@ -7,24 +7,23 @@ import (
 	"errors"
 )
 
-var JobStatuses = [3]string{"starting", "working", "completed"}
+// GO will not allow an array const
+var JOB_STATUSES = [3]string{"starting", "working", "completed"}
 
 // Representation fo Jobs maintained at the master node
 type JobState struct {
 	job Job                // The Job being managed
+	//config JobConfig       // The JobConfig for the Job
 	status string          // "starting", "working", "completed" 
 }
 
 // JobState Constructor
-func makeJobState(job Job, status string) *JobState {
-	// passed status must be one of the options
-	for _, option := range []string{"starting", "working", "completed"} {
-		if option == status {
-			js := &JobState{job: job, status: status}
-			return js
-		}
+func makeJobState(job Job, status string) (*JobState, error) {
+	if validStatus(status) {
+		js := &JobState{job: job, status: status}
+		return js, nil
 	}
-	panic("tried to set invalid JobState status")	
+	return &JobState{}, errors.New("invalid JobState status")
 }
 
 
@@ -43,17 +42,21 @@ func makeJobManager() JobManager {
 
 /*
 Creates an internal JobState representation containing the passed Job and status
-and stores it in the JobManager internal storage keyed by jobId. Returns an error
-if a Job with the same jobId exists and has not been removed.
+and stores it in the JobManager internal storage keyed by jobId. If a Job with the
+same jobId is already stored or the JobState cannot be created (invalid status) 
+the returned error will be non-nil.
 */
 func (self *JobManager) addJob(job Job, status string) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
 	jobId := job.getId()
-	jobState := makeJobState(job, status)
 	if _, present := self.storage[jobId]; present {
 		return errors.New("a Job with the same jobId already exists.")
+	}
+	jobState, error := makeJobState(job, status)
+	if error != nil {
+		return errors.New(error.Error())
 	}
 	self.storage[jobId] = jobState
 	return nil
@@ -98,8 +101,10 @@ func (self *JobManager) getJobState(jobId string) (*JobState, error)  {
 	return self.storage[jobId], nil
 }
 
-
-
+/*
+Returns a copy of the Status associated with a given jobId string. If no Job is
+found with the provided jobId, an empty string and a non-nil error are returned.
+*/
 func (self *JobManager) getStatus(jobId string) (string, error) {
 	self.mu.Lock()
 	defer self.mu.Unlock()
@@ -111,39 +116,43 @@ func (self *JobManager) getStatus(jobId string) (string, error) {
 	return "", errors.New("no JobState with given jobId")
 }
 
-func (self *JobManager) isCompleted(jobId string) bool {
-	self.mu.Lock()
-	defer self.mu.Unlock()
-
-	jobState, error := self.getJobState(jobId)
-	if error == nil && jobState.status == "completed" {
-		return true
-	}
-	return false
-}
-
-// TODO, error handling
+/*
+If a Job with the given jobId is found and the given status is valid, the status
+of the Job is set to the new status. Otherwise, a non-nil error is returned.
+*/
 func (self *JobManager) setStatus(jobId string, status string) error {
 	self.mu.Lock()
 	defer self.mu.Unlock()
 
 	jobState, error := self.getJobState(jobId)
 	if error == nil {
-		jobState.status = status
-		return nil
+		if validStatus(status) {
+			jobState.status = status
+			return nil
+		}
+		return errors.New("invalid JobState status")
 	}
-	// TODO Validate the status 
-	return errors.New("no JobState with given jobId")
+	return errors.New(error.Error())
+}
+
+/*
+Returns true only if there is a Job stored in the Job Manager with the given jobId
+and the status of that Job is "comepleted".
+*/
+func (self *JobManager) isCompleted(jobId string) bool {
+	status, _ := self.getStatus(jobId)
+	if status == "completed" {
+		return true
+	}
+	return false
 }
 
 
+// jobStatus and JobManager Helpers
+///////////////////////////////////////////////////////////////////////////////
 
-
-
-// jobStatus and JobManager Helpers 
-
-func validJobStatus(status string) bool {
-	for _, validStatus := range JobStatuses {
+func validStatus(status string) bool {
+	for _, validStatus := range JOB_STATUSES {
 		if status == validStatus {
 			return true
 		} 

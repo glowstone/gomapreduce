@@ -47,38 +47,45 @@ type MapReduceNode struct {
 /*
 Client would like to start a Job instance which is composed of Task 
 instances (MapTasks or Reduce Tasks). Client passes a JobConfig instance along
-with his implemented Mapper, Reducer, InputAccessor, and OutputAccessor.
-Spawns a master_role thread to perform the requested Job by breaking it into 
-tasks that are allocated to workers. Returns the int job_id assigned to the 
+with his implemented Mapper, Reducer, Inputer, and Outputer. Spawns a 
+masterRole thread to perform the requested Job by breaking it into 
+Tasks that are allocated to workers. Returns the int jobId assigned to the 
 started Job.
 Any configuration settings not for a particular job should be read from the 
 environment.
-
-Aside: Currently, this is called from a client which has a local MapReduceNode running
-at it, but a wrapper that allows start to be called remotely via RPC could be 
-created. We don't currently have any scenarios where the client is not also a 
-member of the network but it is totally possible.
 */
-func (self *MapReduceNode) Start(job_config JobConfig, mapper Mapper, 
+func (self *MapReduceNode) Start(jobConfig JobConfig, mapper Mapper, 
   reducer Reducer, inputer Inputer, outputer Outputer) string {
 
-  jobId := generateUUID()       // Job identifier created internally, unlike in Paxos
+  jobId := generateUUID()             // Job identifier created internally
   job := makeJob(jobId, mapper, reducer, inputer, outputer)
   self.jm.addJob(job, "starting")
-  self.sm.addJob(jobId)          // Add the job to the stats manager
-
-  debug(fmt.Sprintf("(svr:%d) Start: jobId: %s, job: %v", self.me, jobId, job))
-
+  self.sm.addJob(jobId)
+  debug(fmt.Sprintf("(svr:%d) Start: jobId: %s", self.me, jobId))
+  
   // Spawn a thread to act as the master
-	go self.masterRole(job, job_config)
+	go self.masterRole(job, jobConfig)
 
   return jobId
 }
 
-func (self *MapReduceNode) Status(jobId string) bool{
-
+/*
+Client application checks whether the Job with jobId has been comeplted.
+*/
+func (self *MapReduceNode) Status(jobId string) bool {
   debug(fmt.Sprintf("(svr:%d) Status: jobId: %s", self.me, jobId))
   return self.jm.isCompleted(jobId)
+}
+
+/*
+Frees memory associated with performing the Job with the specified jobId.
+Removes the Job from the Job Manager and all Tasks for the Job from the 
+Task Manager(TODO). Notifies workers that intermediate data can be released
+and execution on the Job's Task can be halted (TODO).
+*/
+func (self *MapReduceNode) Done(jobId string) {
+  self.jm.removeJob(jobId)
+  return
 }
 
 
